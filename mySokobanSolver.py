@@ -93,7 +93,7 @@ def taboo_cells(warehouse):
                 # Find corners // Doesn't work currently
                 for i, _ in enumerate(SURR):
                     (ax, ay) = SURR[i]
-                    (bx, by) = SURR[i%4]
+                    (bx, by) = SURR[(i+1) % 4]
                     if warehouse2D[y + ay][x + ax] is WALL and warehouse2D[y + by][x + bx] is WALL:
                         warehouse2D[y][x] = TABOO
 
