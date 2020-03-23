@@ -34,7 +34,7 @@ def my_team():
     of triplet of the form (student_number, first_name, last_name)
     
     '''
-    return [ (10212361, 'Jamie', 'Martin'), (000000, 'xxxx', 'xxxx'), (000000, 'xxxx', 'xxxx') ]
+    return [ (10212361, 'Jamie', 'Martin'), (9737197, 'Tolga', 'Pasin'), (000000, 'xxxx', 'xxxx') ]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -142,6 +142,9 @@ class SokobanPuzzle(search.Problem):
 
     
     def __init__(self, warehouse):
+        """
+
+        """
         raise NotImplementedError()
 
     def actions(self, state):
@@ -153,6 +156,12 @@ class SokobanPuzzle(search.Problem):
         what type of list of actions is to be returned.
         """
         raise NotImplementedError
+
+    def result(self, state, action):
+        """
+        
+        """
+        pass
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
