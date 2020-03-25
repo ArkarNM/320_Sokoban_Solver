@@ -61,25 +61,33 @@ def taboo_cells(warehouse):
        and the boxes.  
     '''
     REMOVE = ['$', '@']
+
+    PLAYER = '@'
+    BOX = '$'
+    TARGET_SQUARE = '.'
+    PLAYER_ON_TARGET_SQUARE = '!'
+    BOX_TARGET = '*'
+
     TARGETS = ['.', '!', '*']
     WALL = '#'
     TABOO = 'X'
     SPACE = ' '
 
     # helper for corners
-    SURR = [(0, -1), (-1, 0), (0, 1), (1, 0)]
+    SURROUNDINGS = [(0, -1), (-1, 0), (0, 1), (1, 0)]
 
     def is_corner_cell(warehouse2D, x, y):
-        for i, _ in enumerate(SURR):
-            (ax, ay) = SURR[i]
-            (bx, by) = SURR[(i+1) % 4]
+        for i, _ in enumerate(SURROUNDINGS):
+            (ax, ay) = SURROUNDINGS[i]
+            (bx, by) = SURROUNDINGS[(i+1) % 4]
+            # if both are walls, as in is a corner, then return True
             if warehouse2D[y + ay][x + ax] is WALL and warehouse2D[y + by][x + bx] is WALL:
                 return True
         return False
     
     # get string
     warehouseStr = warehouse.__str__()
-
+    
     # remove unneccessary things
     for char in REMOVE:
         warehouseStr = warehouseStr.replace(char, SPACE)
