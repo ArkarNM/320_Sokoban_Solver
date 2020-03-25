@@ -77,6 +77,7 @@ def taboo_cells(warehouse):
     SURROUNDINGS = [(0, -1), (-1, 0), (0, 1), (1, 0)]
 
     def is_corner_cell(warehouse2D, x, y):
+        print('\n'.join([''.join(line) for line in warehouse2D]), x, y)
         for i, _ in enumerate(SURROUNDINGS):
             (ax, ay) = SURROUNDINGS[i]
             (bx, by) = SURROUNDINGS[(i+1) % 4]
@@ -84,6 +85,14 @@ def taboo_cells(warehouse):
             if warehouse2D[y + ay][x + ax] is WALL and warehouse2D[y + by][x + bx] is WALL:
                 return True
         return False
+
+    def is_along_wall(warehouse2D, x, y):
+        for i, (ax, ay) in enumerate(SURROUNDINGS):
+            # if next to wall then return True
+            if warehouse2D[y + ay][x + ax] is WALL:
+                return True
+        return False
+
     
     # get string
     warehouseStr = warehouse.__str__()
@@ -97,24 +106,64 @@ def taboo_cells(warehouse):
 
     # rule 1: if a cell is a corner and not a target, then it is a taboo cell.
     for y, row in enumerate(warehouse2D):
-        outside = True
+        inside = False
         for x, cell in enumerate(row):
             # find the inside of the playing area
-            if outside and cell is WALL:
-                outside = False
-            # if outside of playing area then break the loop
-            elif all([cell is SPACE for cell in row[x:]]):
-                break
-            elif cell is not WALL and cell not in TARGETS:
-                # find corners to set as taboo, breaks when found
-                if is_corner_cell(warehouse2D, x, y):
-                    warehouse2D[y][x] = TABOO
+            if not inside and cell is WALL:
+                inside = True
+            elif inside:
+                # if outside of playing area then break the loop
+                if all([cell is SPACE for cell in row[x:]]):
+                    break
+                elif cell is not WALL and cell not in TARGETS:
+                    # find corners to set as taboo, breaks when found
+                    if is_corner_cell(warehouse2D, x, y):
+                        warehouse2D[y][x] = TABOO
 
     # rule 2: all the cells between two corners along a wall are taboo if none of these cells is a target.
+    for y, row in enumerate(warehouse2D):
+        for x, cell in enumerate(row):
+            # find a taboo cell and check rows and columns that apply to rule 2
+            if cell is TABOO and is_corner_cell(warehouse2D, x, y):
+                # from the taboo point get the rest of the row to the right of it and enumerate
+                for row_x, row_cell in enumerate(warehouse2D[y][x + 1:]):
+                    # if there's any targets or walls break
+                    if row_cell in TARGETS or row_cell is WALL:
+                        break
 
+                    # this is the next point in the row, we use x because the rest of the row may be cut off to enumerate
+                    next_in_row_from_taboo = x + (row_x + 1)
+
+                    # find another taboo cell or corner
+                    if row_cell is TABOO and is_corner_cell(warehouse2D, next_in_row_from_taboo, y):
+                        # if the entire row is along a wall then the entire row is taboo
+                        if all([is_along_wall(warehouse2D, x3, y) for x3 in range(x + 1, next_in_row_from_taboo)]):
+                            # fill with taboo
+                            for x4 in range(x + 1, next_in_row_from_taboo):
+                                warehouse2D[y][x4] = TABOO
+
+                # from the taboo point get the rest of the column below it and enumerate over
+                for col_y, col_cell in enumerate([row[x] for row in warehouse2D[y + 1:][:]]):
+                    # if there's any targets or walls break
+                    if col_cell in TARGETS or col_cell is WALL:
+                        break
+
+                    # this is the next point in the column, we use x because the rest of the col may be cut off to enumerate
+                    next_in_col_from_taboo = y + (col_y + 1)
+                    
+                    # find another taboo cell or corner
+                    if col_cell is TABOO and is_corner_cell(warehouse2D, x, next_in_col_from_taboo):
+                        # if the entire column is along a wall then the entire column is taboo
+                        if all([is_along_wall(warehouse2D, x, y3) for y3 in range(y + 1, next_in_col_from_taboo)]):
+                            # fill with taboo
+                            for y4 in range(y + 1, next_in_col_from_taboo):
+                                warehouse2D[y4][x] = TABOO
+
+
+    # return to string variable
     warehouseStr = '\n'.join([''.join(line) for line in warehouse2D])
 
-    # remove targets
+    # remove target chars
     for char in TARGETS:
         warehouseStr = warehouseStr.replace(char, SPACE)
 
