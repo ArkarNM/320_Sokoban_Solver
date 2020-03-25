@@ -24,6 +24,17 @@ This is not negotiable!
 import search 
 import sokoban
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# global variables
+SPACE = ' '
+WALL = '#'
+BOX = '$'
+TARGET_SQUARE = '.'
+PLAYER = '@'
+PLAYER_ON_TARGET_SQUARE = '!'
+BOX_ON_TARGET = '*'
+TABOO = 'X'
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -60,19 +71,11 @@ def taboo_cells(warehouse):
        The returned string should NOT have marks for the worker, the targets,
        and the boxes.  
     '''
-    REMOVE = ['$', '@']
+    
+    SYMBOLS_TO_REMOVE = ['$', '@']
 
-    PLAYER = '@'
-    BOX = '$'
-    TARGET_SQUARE = '.'
-    PLAYER_ON_TARGET_SQUARE = '!'
-    BOX_TARGET = '*'
-
-    TARGETS = ['.', '!', '*']
-    WALL = '#'
-    TABOO = 'X'
-    SPACE = ' '
-
+    TARGETS = [TARGET_SQUARE, PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET]
+    
     # helper for corners
     SURROUNDINGS = [(0, -1), (-1, 0), (0, 1), (1, 0)]
 
@@ -98,7 +101,7 @@ def taboo_cells(warehouse):
     warehouseStr = warehouse.__str__()
     
     # remove unneccessary things
-    for char in REMOVE:
+    for char in SYMBOLS_TO_REMOVE:
         warehouseStr = warehouseStr.replace(char, SPACE)
 
     # convert warehouse string into Array<Array<char>>
@@ -283,6 +286,10 @@ def solve_sokoban_elem(warehouse):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+def h():
+    pass
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def can_go_there(warehouse, dst):
     '''    
     Determine whether the worker can walk to the cell dst=(row,column) 
@@ -294,8 +301,6 @@ def can_go_there(warehouse, dst):
       True if the worker can walk to cell dst=(row,column) without pushing any box
       False otherwise
     '''
-    SPACE = ' '
-    TARGET_SQUARE = '.'
 
     # the player is only able to move to a space and a target square
     ALLOWED_CELLS = [SPACE, TARGET_SQUARE] 
@@ -305,17 +310,15 @@ def can_go_there(warehouse, dst):
 
     # convert warehouse string into Array<Array<char>>
     warehouse2D = [list(line) for line in warehouseStr.split('\n')]
-
-    # x and y values of coordinates are not starting at zero
     coordinates = warehouse2D[dst[0]][dst[1]]
 
-    # check if the cell at the given coordinates (dst) is in the allowed cells
-    if coordinates in ALLOWED_CELLS:
-        # check if path from @ to dst is valid
-        return True
+    # check if the worker is allowed onto the given coordinates before checking if a valid path exists
+    if coordinates not in ALLOWED_CELLS:
+        return False
 
-    return False
-
+    # h = h()
+    # path = search.astar_graph_search()
+    # return path is not None
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def solve_sokoban_macro(warehouse):
