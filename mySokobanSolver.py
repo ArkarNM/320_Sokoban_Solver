@@ -76,8 +76,6 @@ def taboo_cells(warehouse):
        The returned string should NOT have marks for the worker, the targets,
        and the boxes.  
     '''
-    
-    SYMBOLS_TO_REMOVE = ['$', '@']
 
     TARGETS = [TARGET_SQUARE, PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET]
 
@@ -100,21 +98,15 @@ def taboo_cells(warehouse):
     
     # get string
     warehouseStr = warehouse.__str__()
-    
-    '''for using can_go_there() method'''
-    # whStr = warehouseStr
-    # wh = sokoban.Warehouse()
-    # for char in [BOX, BOX_ON_TARGET, TARGET_SQUARE]:
-    #     whStr = whStr.replace(char, SPACE)
-    # wh.from_lines(whStr.split(sep='\n'))
-    '''end for using can_go_there() method'''
 
-    # remove unneccessary things
-    for char in SYMBOLS_TO_REMOVE:
-        warehouseStr = warehouseStr.replace(char, SPACE)
+    # remove boxes
+    warehouseStr = warehouseStr.replace(BOX, SPACE)
 
     # convert warehouse string into Array<Array<char>>
     warehouse2D = [list(line) for line in warehouseStr.split('\n')]
+
+    # ignore boxes for can_go_there method
+    warehouse.boxes = []
 
     # rule 1: if a cell is a corner and not a target, then it is a taboo cell.
     for y, row in enumerate(warehouse2D):
@@ -124,8 +116,8 @@ def taboo_cells(warehouse):
         for x, cell in enumerate(row):
 
             ''' can_go_there() method '''
-            # print(can_go_there(wh, (y, x)), wh.worker, y, x, cell)
-            # if can_go_there(wh, (y, x)) or (y, x) == wh.worker:
+            # print(can_go_there(warehouse, (y, x)), warehouse.worker, y, x, cell)
+            # if can_go_there(warehouse, (y, x)) or cell is PLAYER:
             '''  can_go_there() method '''
 
             ''' old method '''
@@ -133,12 +125,12 @@ def taboo_cells(warehouse):
             if not inside and cell is WALL:
                 inside = True
             elif inside:
-                ''' end old method '''
-
+                
                 # if rest of row is outside of playing area then break the loop
                 if all([cell is SPACE for cell in row[x:]]):
                     break
-                elif cell is not WALL and cell not in TARGETS:
+                ''' end old method '''
+                if cell is not WALL and cell not in TARGETS:
                     # find corners to set as taboo, breaks when found
                     if is_corner_cell(warehouse2D, x, y):
                         warehouse2D[y][x] = TABOO
