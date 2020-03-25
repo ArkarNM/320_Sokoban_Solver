@@ -65,6 +65,17 @@ def taboo_cells(warehouse):
     WALL = '#'
     TABOO = 'X'
     SPACE = ' '
+
+    # helper for corners
+    SURR = [(0, -1), (-1, 0), (0, 1), (1, 0)]
+
+    def is_corner_cell(warehouse2D, x, y):
+        for i, _ in enumerate(SURR):
+            (ax, ay) = SURR[i]
+            (bx, by) = SURR[(i+1) % 4]
+            if warehouse2D[y + ay][x + ax] is WALL and warehouse2D[y + by][x + bx] is WALL:
+                return True
+        return False
     
     # get string
     warehouseStr = warehouse.__str__()
@@ -76,26 +87,22 @@ def taboo_cells(warehouse):
     # convert warehouse string into Array<Array<char>>
     warehouse2D = [list(line) for line in warehouseStr.split('\n')]
 
-    # helper for corners
-    SURR = [(0, -1), (-1, 0), (0, 1), (1, 0)]
-
-    # rule 1
+    # rule 1: if a cell is a corner and not a target, then it is a taboo cell.
     for y, row in enumerate(warehouse2D):
         outside = True
         for x, cell in enumerate(row):
-            # find the inside of the wall
+            # find the inside of the playing area
             if outside and cell is WALL:
                 outside = False
             # if outside of playing area then break the loop
             elif all([cell is SPACE for cell in row[x:]]):
                 break
             elif cell is not WALL and cell not in TARGETS:
-                # Find corners // Doesn't work currently
-                for i, _ in enumerate(SURR):
-                    (ax, ay) = SURR[i]
-                    (bx, by) = SURR[(i+1) % 4]
-                    if warehouse2D[y + ay][x + ax] is WALL and warehouse2D[y + by][x + bx] is WALL:
-                        warehouse2D[y][x] = TABOO
+                # find corners to set as taboo, breaks when found
+                if is_corner_cell(warehouse2D, x, y):
+                    warehouse2D[y][x] = TABOO
+
+    # rule 2: all the cells between two corners along a wall are taboo if none of these cells is a target.
 
     warehouseStr = '\n'.join([''.join(line) for line in warehouse2D])
 
