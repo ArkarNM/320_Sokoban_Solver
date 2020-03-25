@@ -77,7 +77,6 @@ def taboo_cells(warehouse):
     SURROUNDINGS = [(0, -1), (-1, 0), (0, 1), (1, 0)]
 
     def is_corner_cell(warehouse2D, x, y):
-        print('\n'.join([''.join(line) for line in warehouse2D]), x, y)
         for i, _ in enumerate(SURROUNDINGS):
             (ax, ay) = SURROUNDINGS[i]
             (bx, by) = SURROUNDINGS[(i+1) % 4]
