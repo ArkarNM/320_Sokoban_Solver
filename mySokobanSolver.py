@@ -136,7 +136,7 @@ def taboo_cells(warehouse):
                     # find another taboo cell or corner
                     if row_cell is TABOO and is_corner_cell(warehouse2D, next_in_row_from_taboo, y):
                         # if the entire row is along a wall then the entire row is taboo
-                        if all([is_along_wall(warehouse2D, x3, y) for x3 in range(x + 1, next_in_row_from_taboo)]):
+                        if all([is_along_wall(warehouse2D, i, y) for i in range(x + 1, next_in_row_from_taboo)]):
                             # fill with taboo
                             for x4 in range(x + 1, next_in_row_from_taboo):
                                 warehouse2D[y][x4] = TABOO
@@ -153,7 +153,7 @@ def taboo_cells(warehouse):
                     # find another taboo cell or corner
                     if col_cell is TABOO and is_corner_cell(warehouse2D, x, next_in_col_from_taboo):
                         # if the entire column is along a wall then the entire column is taboo
-                        if all([is_along_wall(warehouse2D, x, y3) for y3 in range(y + 1, next_in_col_from_taboo)]):
+                        if all([is_along_wall(warehouse2D, x, i) for i in range(y + 1, next_in_col_from_taboo)]):
                             # fill with taboo
                             for y4 in range(y + 1, next_in_col_from_taboo):
                                 warehouse2D[y4][x] = TABOO
