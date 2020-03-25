@@ -173,6 +173,6 @@ if __name__ == "__main__":
     test_taboo_cells() 
 #    test_check_elem_action_seq()
 #    test_solve_sokoban_elem()
-#    test_can_go_there()
+    test_can_go_there()
 #    test_solve_sokoban_macro()   
 #    test_solve_weighted_sokoban_elem()
