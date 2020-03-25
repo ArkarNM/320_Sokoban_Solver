@@ -23,6 +23,9 @@ This is not negotiable!
 # with these files
 import search 
 import sokoban
+import math
+import time
+import timeit
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -35,6 +38,8 @@ PLAYER = '@'
 PLAYER_ON_TARGET_SQUARE = '!'
 BOX_ON_TARGET = '*'
 TABOO = 'X'
+# helper for corners
+SURROUNDINGS = [(0, -1), (-1, 0), (0, 1), (1, 0)]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -75,9 +80,6 @@ def taboo_cells(warehouse):
     SYMBOLS_TO_REMOVE = ['$', '@']
 
     TARGETS = [TARGET_SQUARE, PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET]
-    
-    # helper for corners
-    SURROUNDINGS = [(0, -1), (-1, 0), (0, 1), (1, 0)]
 
     def is_corner_cell(warehouse2D, x, y):
         for i, _ in enumerate(SURROUNDINGS):
@@ -99,6 +101,14 @@ def taboo_cells(warehouse):
     # get string
     warehouseStr = warehouse.__str__()
     
+    '''for using can_go_there() method'''
+    # whStr = warehouseStr
+    # wh = sokoban.Warehouse()
+    # for char in [BOX, BOX_ON_TARGET, TARGET_SQUARE]:
+    #     whStr = whStr.replace(char, SPACE)
+    # wh.from_lines(whStr.split(sep='\n'))
+    '''end for using can_go_there() method'''
+
     # remove unneccessary things
     for char in SYMBOLS_TO_REMOVE:
         warehouseStr = warehouseStr.replace(char, SPACE)
@@ -108,13 +118,24 @@ def taboo_cells(warehouse):
 
     # rule 1: if a cell is a corner and not a target, then it is a taboo cell.
     for y, row in enumerate(warehouse2D):
+        ''' old method '''
         inside = False
+        ''' end old method '''
         for x, cell in enumerate(row):
+
+            ''' can_go_there() method '''
+            # print(can_go_there(wh, (y, x)), wh.worker, y, x, cell)
+            # if can_go_there(wh, (y, x)) or (y, x) == wh.worker:
+            '''  can_go_there() method '''
+
+            ''' old method '''
             # find the inside of the playing area
             if not inside and cell is WALL:
                 inside = True
             elif inside:
-                # if outside of playing area then break the loop
+                ''' end old method '''
+
+                # if rest of row is outside of playing area then break the loop
                 if all([cell is SPACE for cell in row[x:]]):
                     break
                 elif cell is not WALL and cell not in TARGETS:
@@ -285,8 +306,32 @@ def solve_sokoban_elem(warehouse):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-def h():
-    pass
+def add_tuples(tuple1, tuple2):
+    return tuple1[0] + tuple2[0], tuple1[1] + tuple2[1]
+
+
+class FindPathProblem(search.Problem):
+    def __init__(self, initial, warehouse, goal=None):
+        self.initial = initial
+        self.goal = goal
+        self.warehouse = warehouse
+
+    def value(self, state):
+        return 1  # Single movements have a cost of 1
+
+    def result(self, state, action):
+        # The result is the old state, with the action applied.
+        new_state = add_tuples(state, action)
+        return new_state
+
+    def actions(self, state):
+        for offset in SURROUNDINGS:
+            new_state = add_tuples(state, offset)
+            # Check that the location isn't a wall or box
+            if new_state not in self.warehouse.boxes \
+                    and new_state not in self.warehouse.walls:
+                yield offset
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def can_go_there(warehouse, dst):
@@ -300,6 +345,8 @@ def can_go_there(warehouse, dst):
       True if the worker can walk to cell dst=(row,column) without pushing any box
       False otherwise
     '''
+    # separate x, y for usage, dst=(row = y, col = x)
+    (row, col) = dst
 
     # the player is only able to move to a space and a target square
     ALLOWED_CELLS = [SPACE, TARGET_SQUARE] 
@@ -309,15 +356,28 @@ def can_go_there(warehouse, dst):
 
     # convert warehouse string into Array<Array<char>>
     warehouse2D = [list(line) for line in warehouseStr.split('\n')]
-    coordinates = warehouse2D[dst[0]][dst[1]]
+    coordinates = warehouse2D[row][col]
 
     # check if the worker is allowed onto the given coordinates before checking if a valid path exists
     if coordinates not in ALLOWED_CELLS:
         return False
 
+    # use manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
+    def heuristic(n):
+        (s_row, s_col) = n.state
+        return abs(s_row - row) + abs(s_col - col)
+
     # h = h()
     # path = search.astar_graph_search()
     # return path is not None
+
+    # can just return the search.astar_graph_search() is not None ^^
+
+    node = search.astar_graph_search(FindPathProblem(warehouse.worker, warehouse, (col, row)),
+                       heuristic)
+
+    # If a node was found, this is a valid destination
+    return node is not None
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def solve_sokoban_macro(warehouse):
