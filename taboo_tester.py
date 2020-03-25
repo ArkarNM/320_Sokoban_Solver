@@ -58,15 +58,11 @@ def test_taboo_cells(n):
 
 
 def test_taboo(test, expected):
-    print('Test:')
-    print(test)
-    print('Expected:')
-    print(expected)
     wh = Warehouse()
+    print(test)
     # removes unneccessary \n
     wh.from_lines(test.split(sep='\n'))
     answer = taboo_cells(wh)
-    print('Answer:')
     print(answer)
     if same_multi_line_strings(answer, expected):
         print('Test Passed')
