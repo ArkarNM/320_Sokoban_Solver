@@ -293,10 +293,27 @@ def can_go_there(warehouse, dst):
       True if the worker can walk to cell dst=(row,column) without pushing any box
       False otherwise
     '''
-    
-    ##         "INSERT YOUR CODE HERE"
-    
-    raise NotImplementedError()
+    SPACE = ' '
+    TARGET_SQUARE = '.'
+
+    # the player is only able to move to a space and a target square
+    ALLOWED_CELLS = [SPACE, TARGET_SQUARE] 
+
+    # convert the warehouse to a string
+    warehouseStr = warehouse.__str__()
+
+    # convert warehouse string into Array<Array<char>>
+    warehouse2D = [list(line) for line in warehouseStr.split('\n')]
+
+    # x and y values of coordinates are not starting at zero
+    coordinates = warehouse2D[dst[0]][dst[1]]
+
+    # check if the cell at the given coordinates (dst) is in the allowed cells
+    if coordinates in ALLOWED_CELLS:
+        # check if path from @ to dst is valid
+        return True
+
+    return False
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
