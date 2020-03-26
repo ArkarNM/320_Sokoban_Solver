@@ -29,7 +29,8 @@ import timeit
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# global variables
+## Global Variables ##
+
 SPACE = ' '
 WALL = '#'
 BOX = '$'
@@ -38,11 +39,84 @@ PLAYER = '@'
 PLAYER_ON_TARGET_SQUARE = '!'
 BOX_ON_TARGET = '*'
 TABOO = 'X'
+NEW_LINE = '\n'
+EMPTY_STRING = ''
+
+# different types of target squares
+TARGETS = [TARGET_SQUARE, PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET]
+
 # helper for corners
 SURROUNDINGS = [(0, -1), (-1, 0), (0, 1), (1, 0)]
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+## Helper Functions ##
+
+def concat_tuples(firstTuple, secondTuple):
+    """
+
+    """
+
+    return firstTuple[0] + secondTuple[0], firstTuple[1] + secondTuple[1]
+
+
+## NEED TO REFORMAT BELOW FUNCTION ##
+class FindPathProblem(search.Problem):
+    def __init__(self, initial, warehouse, goal=None):
+        self.initial = initial
+        self.goal = goal
+        self.warehouse = warehouse
+
+    def value(self, state):
+        return 1  # Single movements have a cost of 1
+
+    def result(self, state, action):
+        # The result is the old state, with the action applied.
+        new_state = concat_tuples(state, action)
+        return new_state
+
+    def actions(self, state):
+        for offset in SURROUNDINGS:
+            new_state = concat_tuples(state, offset)
+            # Check that the location isn't a wall or box
+            if new_state not in self.warehouse.boxes \
+                    and new_state not in self.warehouse.walls:
+                yield offset
+
+def check_if_corner_cell(warehouseMatrix, cell):
+    """
+
+    """
+    
+    for i, _ in enumerate(SURROUNDINGS):
+        (ax, ay) = SURROUNDINGS[i]
+        (bx, by) = SURROUNDINGS[(i+1) % 4]
+
+        # if both are walls, as in is a corner, then return True
+        if warehouseMatrix[cell[1] + ay][cell[0] + ax] is WALL and warehouseMatrix[cell[1] + by][cell[0] + bx] is WALL:
+            return True
+    return False
+
+def check_if_along_wall(warehouseMatrix, cell):
+    """
+
+    """
+ 
+    for (ax, ay) in enumerate(SURROUNDINGS):
+
+        # if next to wall then return True
+        if warehouseMatrix[cell[1] + ay][cell[0] + ax] is WALL:
+            return True
+    return False
+
+def matrix_to_string(warehouseMatrix):
+    """
+
+    """
+
+    return NEW_LINE.join([EMPTY_STRING.join(row) for row in warehouseMatrix])
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def my_team():
     '''
@@ -77,39 +151,22 @@ def taboo_cells(warehouse):
        and the boxes.  
     '''
 
-    TARGETS = [TARGET_SQUARE, PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET]
-
-    def is_corner_cell(warehouse2D, x, y):
-        for i, _ in enumerate(SURROUNDINGS):
-            (ax, ay) = SURROUNDINGS[i]
-            (bx, by) = SURROUNDINGS[(i+1) % 4]
-            # if both are walls, as in is a corner, then return True
-            if warehouse2D[y + ay][x + ax] is WALL and warehouse2D[y + by][x + bx] is WALL:
-                return True
-        return False
-
-    def is_along_wall(warehouse2D, x, y):
-        for i, (ax, ay) in enumerate(SURROUNDINGS):
-            # if next to wall then return True
-            if warehouse2D[y + ay][x + ax] is WALL:
-                return True
-        return False
-
-    
     # get string
     warehouseStr = warehouse.__str__()
 
-    # remove boxes
-    warehouseStr = warehouseStr.replace(BOX, SPACE)
+    irrelevantSquares = [BOX, PLAYER]
+
+    for square in irrelevantSquares:
+        warehouseStr = warehouseStr.replace(square, SPACE)
 
     # convert warehouse string into Array<Array<char>>
-    warehouse2D = [list(line) for line in warehouseStr.split('\n')]
+    warehouseMatrix = [list(line) for line in warehouseStr.split(NEW_LINE)]
 
     # ignore boxes for can_go_there method
     warehouse.boxes = []
 
     # rule 1: if a cell is a corner and not a target, then it is a taboo cell.
-    for y, row in enumerate(warehouse2D):
+    for y, row in enumerate(warehouseMatrix):
         ''' old method '''
         inside = False
         ''' end old method '''
@@ -132,16 +189,16 @@ def taboo_cells(warehouse):
                 ''' end old method '''
                 if cell is not WALL and cell not in TARGETS:
                     # find corners to set as taboo, breaks when found
-                    if is_corner_cell(warehouse2D, x, y):
-                        warehouse2D[y][x] = TABOO
+                    if check_if_corner_cell(warehouseMatrix, (x, y)):
+                        warehouseMatrix[y][x] = TABOO
 
     # rule 2: all the cells between two corners along a wall are taboo if none of these cells is a target.
-    for y, row in enumerate(warehouse2D):
+    for y, row in enumerate(warehouseMatrix):
         for x, cell in enumerate(row):
             # find a taboo cell and check rows and columns that apply to rule 2
-            if cell is TABOO and is_corner_cell(warehouse2D, x, y):
+            if cell is TABOO and check_if_corner_cell(warehouseMatrix, (x, y)):
                 # from the taboo point get the rest of the row to the right of it and enumerate
-                for row_x, row_cell in enumerate(warehouse2D[y][x + 1:]):
+                for row_x, row_cell in enumerate(warehouseMatrix[y][x + 1:]):
                     # if there's any targets or walls break
                     if row_cell in TARGETS or row_cell is WALL:
                         break
@@ -150,15 +207,15 @@ def taboo_cells(warehouse):
                     next_in_row_from_taboo = x + (row_x + 1)
 
                     # find another taboo cell or corner
-                    if row_cell is TABOO and is_corner_cell(warehouse2D, next_in_row_from_taboo, y):
+                    if row_cell is TABOO and check_if_corner_cell(warehouseMatrix, (next_in_row_from_taboo, y)):
                         # if the entire row is along a wall then the entire row is taboo
-                        if all([is_along_wall(warehouse2D, i, y) for i in range(x + 1, next_in_row_from_taboo)]):
+                        if all([check_if_along_wall(warehouseMatrix, (i, y)) for i in range(x + 1, next_in_row_from_taboo)]):
                             # fill with taboo
                             for x4 in range(x + 1, next_in_row_from_taboo):
-                                warehouse2D[y][x4] = TABOO
+                                warehouseMatrix[y][x4] = TABOO
 
                 # from the taboo point get the rest of the column below it and enumerate over
-                for col_y, col_cell in enumerate([row[x] for row in warehouse2D[y + 1:][:]]):
+                for col_y, col_cell in enumerate([row[x] for row in warehouseMatrix[y + 1:][:]]):
                     # if there's any targets or walls break
                     if col_cell in TARGETS or col_cell is WALL:
                         break
@@ -167,20 +224,20 @@ def taboo_cells(warehouse):
                     next_in_col_from_taboo = y + (col_y + 1)
                     
                     # find another taboo cell or corner
-                    if col_cell is TABOO and is_corner_cell(warehouse2D, x, next_in_col_from_taboo):
+                    if col_cell is TABOO and check_if_corner_cell(warehouseMatrix, (x, next_in_col_from_taboo)):
                         # if the entire column is along a wall then the entire column is taboo
-                        if all([is_along_wall(warehouse2D, x, i) for i in range(y + 1, next_in_col_from_taboo)]):
+                        if all([check_if_along_wall(warehouseMatrix, (x, i)) for i in range(y + 1, next_in_col_from_taboo)]):
                             # fill with taboo
                             for y4 in range(y + 1, next_in_col_from_taboo):
-                                warehouse2D[y4][x] = TABOO
+                                warehouseMatrix[y4][x] = TABOO
 
 
     # return to string variable
-    warehouseStr = '\n'.join([''.join(line) for line in warehouse2D])
+    warehouseStr = matrix_to_string(warehouseMatrix)
 
     # remove target chars
-    for char in TARGETS:
-        warehouseStr = warehouseStr.replace(char, SPACE)
+    for square in TARGETS:
+        warehouseStr = warehouseStr.replace(square, SPACE)
 
     return warehouseStr
 
@@ -298,34 +355,6 @@ def solve_sokoban_elem(warehouse):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-def add_tuples(tuple1, tuple2):
-    return tuple1[0] + tuple2[0], tuple1[1] + tuple2[1]
-
-
-class FindPathProblem(search.Problem):
-    def __init__(self, initial, warehouse, goal=None):
-        self.initial = initial
-        self.goal = goal
-        self.warehouse = warehouse
-
-    def value(self, state):
-        return 1  # Single movements have a cost of 1
-
-    def result(self, state, action):
-        # The result is the old state, with the action applied.
-        new_state = add_tuples(state, action)
-        return new_state
-
-    def actions(self, state):
-        for offset in SURROUNDINGS:
-            new_state = add_tuples(state, offset)
-            # Check that the location isn't a wall or box
-            if new_state not in self.warehouse.boxes \
-                    and new_state not in self.warehouse.walls:
-                yield offset
-
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def can_go_there(warehouse, dst):
     '''    
     Determine whether the worker can walk to the cell dst=(row,column) 
@@ -347,29 +376,33 @@ def can_go_there(warehouse, dst):
     warehouseStr = warehouse.__str__()
 
     # convert warehouse string into Array<Array<char>>
-    warehouse2D = [list(line) for line in warehouseStr.split('\n')]
-    coordinates = warehouse2D[row][col]
+    warehouseMatrix = [list(line) for line in warehouseStr.split(NEW_LINE)]
+    coordinates = warehouseMatrix[row][col]
 
     # check if the worker is allowed onto the given coordinates before checking if a valid path exists
     if coordinates not in ALLOWED_CELLS:
         return False
 
+    ##### Look for way to define h outside of can_go_there because it will slow it down by having to redefine it every time it is called #######
+
     # use manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
-    def heuristic(n):
+    def h(n):
+        """
+
+        """
+ 
         (s_row, s_col) = n.state
         return abs(s_row - row) + abs(s_col - col)
 
-    # h = h()
-    # path = search.astar_graph_search()
-    # return path is not None
+    # check if a valid path from the worker to the coordinate provided exists
+    path = search.astar_graph_search(
+                FindPathProblem(
+                        warehouse.worker, 
+                        warehouse, 
+                        (col, row)),
+                        h)
 
-    # can just return the search.astar_graph_search() is not None ^^
-
-    node = search.astar_graph_search(FindPathProblem(warehouse.worker, warehouse, (col, row)),
-                       heuristic)
-
-    # If a node was found, this is a valid destination
-    return node is not None
+    return path is not None
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def solve_sokoban_macro(warehouse):
