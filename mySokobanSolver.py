@@ -59,33 +59,6 @@ def add_action(state, action, scale=1):
     """
     return state[0] + (scale * action[0]), state[1] + (scale * action[1])
 
-## REFORMATTED
-class CanGoThereProblem(search.Problem):
-    # initialises the problem
-    def __init__(self, initial, warehouse, goal):
-        self.initial = initial
-        self.warehouse = warehouse
-        self.goal = goal
-
-    # signifies the cost of the movement
-    def value(self, state):
-        return 1
-
-    # list of possible actions
-    def actions(self, state):
-        boxes = self.warehouse.boxes
-        walls = self.warehouse.walls
-
-        for action in SURROUNDINGS:
-            new_state = add_action(state, action)
-            # check that the action doesn't result in a wall or box collision
-            if new_state not in boxes and new_state not in walls:
-                yield action
-
-    # Return the old state, with the action applied.
-    def result(self, state, action):
-        return add_action(state, action)
-
 
 def check_if_corner_cell(warehouseMatrix, dst):
     """
@@ -126,6 +99,48 @@ def string_to_matrix(warehouseStr):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+## Helper Classes ##
+
+class CanGoThereProblem(search.Problem):
+    # initialises the problem
+    def __init__(self, initial, warehouse, goal):
+        self.initial = initial
+        self.warehouse = warehouse
+        self.goal = goal
+
+    # signifies the cost of the movement
+    def value(self, state):
+        return 1
+
+    # list of possible actions
+    def actions(self, state):
+        boxes = self.warehouse.boxes
+        walls = self.warehouse.walls
+
+        for action in SURROUNDINGS:
+            new_state = add_action(state, action)
+            # check that the action doesn't result in a wall or box collision
+            if new_state not in boxes and new_state not in walls:
+                yield action
+
+    # Return the old state, with the action applied.
+    def result(self, state, action):
+        return add_action(state, action)
+
+class Heuristic():
+    def __init__(self, col, row):
+        self.col = col
+        self.row = row
+
+    def manhattan_distance(self, n):
+        """
+        heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
+        """
+ 
+        (s_row, s_col) = n.state
+        return abs(s_row - self.row) + abs(s_col - self.col)
+        
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def my_team():
     '''
@@ -426,18 +441,16 @@ def can_go_there(warehouse, dst):
     cell = warehouseMatrix[row][col]
     if cell not in ALLOWED_CELLS:
         return False
-
-    ##### Look for way to define h outside of can_go_there because it will slow it down by having to redefine it every time it is called #######
-
-    def h(n):
-        """
-        heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
-        """
-        (s_row, s_col) = n.state
-        return abs(s_row - row) + abs(s_col - col)
+  
+    h = Heuristic(col, row)
 
     # check if a valid path from the worker to the coordinate provided exists
-    path = search.astar_graph_search(CanGoThereProblem(warehouse.worker, warehouse, (col, row)), h)
+    path = search.astar_graph_search(
+                CanGoThereProblem(
+                        warehouse.worker, 
+                        warehouse, 
+                        (col, row)),
+                        h.manhattan_distance)
 
     return path is not None
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
