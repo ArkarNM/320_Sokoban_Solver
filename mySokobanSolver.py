@@ -59,30 +59,6 @@ def concat_tuples(firstTuple, secondTuple):
 
     return firstTuple[0] + secondTuple[0], firstTuple[1] + secondTuple[1]
 
-
-## NEED TO REFORMAT BELOW FUNCTION ##
-class FindPathProblem(search.Problem):
-    def __init__(self, initial, warehouse, goal=None):
-        self.initial = initial
-        self.goal = goal
-        self.warehouse = warehouse
-
-    def value(self, state):
-        return 1  # Single movements have a cost of 1
-
-    def result(self, state, action):
-        # The result is the old state, with the action applied.
-        new_state = concat_tuples(state, action)
-        return new_state
-
-    def actions(self, state):
-        for offset in SURROUNDINGS:
-            new_state = concat_tuples(state, offset)
-            # Check that the location isn't a wall or box
-            if new_state not in self.warehouse.boxes \
-                    and new_state not in self.warehouse.walls:
-                yield offset
-
 def check_if_corner_cell(warehouseMatrix, cell):
     """
 
@@ -116,6 +92,46 @@ def matrix_to_string(warehouseMatrix):
 
     return NEW_LINE.join([EMPTY_STRING.join(row) for row in warehouseMatrix])
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+## Helper Classes ##
+
+## NEED TO REFORMAT BELOW FUNCTION ##
+class FindPathProblem(search.Problem):
+    def __init__(self, initial, warehouse, goal=None):
+        self.initial = initial
+        self.goal = goal
+        self.warehouse = warehouse
+
+    def value(self, state):
+        return 1  # Single movements have a cost of 1
+
+    def result(self, state, action):
+        # The result is the old state, with the action applied.
+        new_state = concat_tuples(state, action)
+        return new_state
+
+    def actions(self, state):
+        for offset in SURROUNDINGS:
+            new_state = concat_tuples(state, offset)
+            # Check that the location isn't a wall or box
+            if new_state not in self.warehouse.boxes \
+                    and new_state not in self.warehouse.walls:
+                yield offset
+
+class Heuristic():
+    def __init__(self, col, row):
+        self.col = col
+        self.row = row
+
+    def manhattan_distance(self, n):
+        """
+
+        """
+ 
+        (s_row, s_col) = n.state
+        return abs(s_row - self.row) + abs(s_col - self.col)
+        
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def my_team():
@@ -382,17 +398,8 @@ def can_go_there(warehouse, dst):
     # check if the worker is allowed onto the given coordinates before checking if a valid path exists
     if coordinates not in ALLOWED_CELLS:
         return False
-
-    ##### Look for way to define h outside of can_go_there because it will slow it down by having to redefine it every time it is called #######
-
-    # use manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
-    def h(n):
-        """
-
-        """
- 
-        (s_row, s_col) = n.state
-        return abs(s_row - row) + abs(s_col - col)
+    
+    h = Heuristic(col, row)
 
     # check if a valid path from the worker to the coordinate provided exists
     path = search.astar_graph_search(
@@ -400,7 +407,7 @@ def can_go_there(warehouse, dst):
                         warehouse.worker, 
                         warehouse, 
                         (col, row)),
-                        h)
+                        h.manhattan_distance)
 
     return path is not None
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
