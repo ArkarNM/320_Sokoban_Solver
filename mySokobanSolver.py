@@ -23,9 +23,7 @@ This is not negotiable!
 # with these files
 import search 
 import sokoban
-import math
-import time
-import timeit
+import itertools
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -57,7 +55,9 @@ def add_action(state, action, scale=1):
     """
     adds the action tuple to the state tuple and returns
     """
-    return state[0] + (scale * action[0]), state[1] + (scale * action[1])
+    (s_x, s_y) = state
+    (a_x, a_y) = action
+    return s_x + (scale * a_x), s_y + (scale * a_y)
 
 
 def check_if_corner_cell(warehouseMatrix, dst):
@@ -101,7 +101,7 @@ def string_to_matrix(warehouseStr):
 
 ## Helper Classes ##
 
-class CanGoThereProblem(search.Problem):
+class PathProblem(search.Problem):
     # initialises the problem
     def __init__(self, initial, warehouse, goal):
         self.initial = initial
@@ -136,7 +136,6 @@ class Heuristic():
         """
         heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
         """
- 
         (s_row, s_col) = n.state
         return abs(s_row - self.row) + abs(s_col - self.col)
         
@@ -189,31 +188,27 @@ def taboo_cells(warehouse):
     # ignore boxes for can_go_there method
     warehouse.boxes = []
 
+    ''' old method '''
+    # inside = False
+
+    # find the inside of the playing area
+    # if not inside and cell is WALL:
+    #     inside = True
+    # elif inside:
+        
+    #     # if rest of row is outside of playing area then break the loop
+    #     if all([cell is SPACE for cell in row[x:]]):
+    #         break
+    ''' end old method '''
+
     # rule 1: if a cell is a corner and not a target, then it is a taboo cell.
     for row_index, row in enumerate(warehouseMatrix):
-        ''' old method '''
-        # inside = False
-        ''' end old method '''
         for col_index, cell in enumerate(row):
-            ''' can_go_there() method '''
-            if cell is not WALL:
+            if cell is not WALL and cell not in TARGETS:
                 if can_go_there(warehouse, (row_index, col_index)) or (row_index, col_index) == warehouse.worker:
-                    '''  can_go_there() method '''
-
-                    ''' old method '''
-                    # find the inside of the playing area
-                    # if not inside and cell is WALL:
-                    #     inside = True
-                    # elif inside:
-                        
-                    #     # if rest of row is outside of playing area then break the loop
-                    #     if all([cell is SPACE for cell in row[x:]]):
-                    #         break
-                    ''' end old method '''
-                    if cell is not WALL and cell not in TARGETS:
-                        # find corners to set as taboo, breaks when found
-                        if check_if_corner_cell(warehouseMatrix, (row_index, col_index)):
-                            warehouseMatrix[row_index][col_index] = TABOO
+                    # find corners to set as taboo, breaks when found
+                    if check_if_corner_cell(warehouseMatrix, (row_index, col_index)):
+                        warehouseMatrix[row_index][col_index] = TABOO
 
     # rule 2: all the cells between two corners along a wall are taboo if none of these cells is a target.
     for row_index, row in enumerate(warehouseMatrix):
@@ -294,8 +289,10 @@ class SokobanPuzzle(search.Problem):
         initialisation function
         """
         self.initial = warehouse.copy()
+        # get a list of taboo_cells for usage
         self.taboo_cells = set(sokoban.find_2D_iterator(taboo_cells(warehouse).split(sep='\n'), "X"))
-        self.goal = tuple(warehouse.targets)
+        # remove the player from the goal or target_square and move the boxes to the targets
+        self.goal = warehouse.__str__().replace(PLAYER, SPACE).replace(PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET).replace(BOX, SPACE).replace(TARGET_SQUARE, BOX_ON_TARGET)
 
     def actions(self, state):
         """
@@ -305,11 +302,33 @@ class SokobanPuzzle(search.Problem):
         'self.allow_taboo_push' and 'self.macro' should be tested to determine
         what type of list of actions is to be returned.
         """
-        print(state)
+        worker = state.worker
+        walls = state.walls
+        boxes = state.boxes
+
+        # enumerate through possible surroundings
+        for i, surr in enumerate(SURROUNDINGS):
+            # get the new position of adding the move to the worker
+            test_pos = add_action(worker, surr)
+            # test it's not a wall
+            if test_pos not in walls:
+                # if it's within a box position test new position of box
+                if test_pos in boxes:
+                    test_box = add_action(worker, surr, 2)
+                    # ensure the new box position doesn't merge with a wall, box or taboo cell
+                    if test_box not in self.taboo_cells and test_box not in boxes and test_box not in walls:
+                        yield ACTIONS[i]
+                else:
+                    yield ACTIONS[i]        
+
+    def goal_test(self, state):
+        # goal test to ensure all boxes are in a target_square
+        # player position is irrelevant so remove
+        return state.__str__().replace("@", " ") == self.goal
 
     def result(self, state, action):
         """
-        
+        action upon the given action and return the new state
         """
         # convert action ie 'Left' into tuple (-1, 0)
         next_pos = SURROUNDINGS[ACTIONS.index(action)]
@@ -410,10 +429,63 @@ def solve_sokoban_elem(warehouse):
             For example, ['Left', 'Down', Down','Right', 'Up', 'Down']
             If the puzzle is already in a goal state, simply return []
     '''
-    
-    ##         "INSERT YOUR CODE HERE"
-    
-    raise NotImplementedError()
+
+    ######################## NEED TO CHANGE OR REFORMAT BELOW ##########################
+    def heuristic(n):
+        """
+        heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
+        """
+
+        for targets_perm in itertools.permutations(n.state.targets):
+            abs_value = 0
+            for boxes_perm in itertools.permutations(n.state.boxes):
+                print(targets_perm, boxes_perm)
+        print('\n')
+        # create every possible permutation of targets
+        permu_targets = list(itertools.permutations(n.state.targets))
+        heuristic_list = []
+        # loop through every permutation
+        for i in range(len(permu_targets)):
+             # zip permutation and boxes for comparison
+             zipped = list(zip(n.state.boxes, permu_targets[i]))
+             total_abs_value = 0
+             # loop through lists and find total absolute distance from targets to boxes
+             for j in range(len(zipped)):
+                 abs_value = abs(zipped[j][0][0]-zipped[j][1][0]) + abs(zipped[j][0][1]-zipped[j][1][1])
+                 total_abs_value = total_abs_value + abs_value
+             heuristic_list.append(total_abs_value)   
+        
+        # take the minimum absolute distance of boxes to targets
+        boxtotarget_distance = min(heuristic_list)
+        
+        heuristic_list = []
+        # store the absolute distance between the worker and the closest goal in a list
+        for (x,y) in n.state.boxes:
+            abs_distance = abs(x-n.state.worker[0])+abs(y-n.state.worker[1])
+            heuristic_list.append(abs_distance)
+        #get the minimum distance between worker and closest goal    
+        workertobox_distance = min(heuristic_list)
+
+        return boxtotarget_distance + workertobox_distance
+    ######################## NEED TO CHANGE OR REFORMAT ABOVE ##########################
+
+
+    path = search.astar_graph_search(SokobanPuzzle(warehouse), heuristic)
+
+    def getPath(path):
+        for node in path.path():
+            if node.action is not None:
+                if isinstance(node.action, list):
+                    for action in node.action:
+                        yield action
+                else:
+                    yield node.action
+                    
+    if path is not None:
+        return [action for action in getPath(path)]
+    else: 
+        return 'Impossible'
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -446,7 +518,7 @@ def can_go_there(warehouse, dst):
 
     # check if a valid path from the worker to the coordinate provided exists
     path = search.astar_graph_search(
-                CanGoThereProblem(
+                PathProblem(
                         warehouse.worker, 
                         warehouse, 
                         (col, row)),
