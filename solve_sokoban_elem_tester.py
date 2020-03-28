@@ -4,6 +4,7 @@ from __future__ import division
 
 from sokoban import Warehouse, find_2D_iterator
 from mySokobanSolver import solve_sokoban_elem
+import time
 
 t1_test = '''
 ####
@@ -32,7 +33,9 @@ def test(n):
     print("Testing:", problem_file)
     wh = Warehouse()
     wh.load_warehouse(problem_file)
+    time1 = time.time()
     answer = solve_sokoban_elem(wh)
+    print(time.time() - time1)
     print(answer)
 
 def test_expected(n, expected):

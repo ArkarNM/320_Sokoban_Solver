@@ -116,7 +116,7 @@ class PathProblem(search.Problem):
         self.warehouse = warehouse
         self.goal = goal
 
-    # signifies the cost of the movement
+    # signifies the cost of a movement through the path
     def value(self, state):
         return 1
 
@@ -278,11 +278,13 @@ class SokobanPuzzle(search.Problem):
     return elementary actions.        
     '''
     
-    def __init__(self, warehouse):
+    def __init__(self, warehouse, macro=False, allow_taboo_push=False):
         """
         initialisation function
         """
         self.initial = warehouse.__str__()
+        self.macro = macro
+        self.allow_taboo_push = allow_taboo_push
         # get a list of taboo_cells for usage
         self.taboo_cells = set(sokoban.find_2D_iterator(taboo_cells(warehouse).split(sep='\n'), "X"))
         # remove the player from the goal or target_square and move the boxes to the targets
@@ -300,7 +302,7 @@ class SokobanPuzzle(search.Problem):
         warehouse.from_string(state)
 
         walls, worker, boxes = warehouse.walls, warehouse.worker, warehouse.boxes
-
+        
         # enumerate through possible surroundings
         for i, surr in enumerate(SURROUNDINGS):
             # get the new position of adding the move to the worker
@@ -331,7 +333,7 @@ class SokobanPuzzle(search.Problem):
         
         # convert action ie 'Left' into tuple (-1, 0)
         next_pos = SURROUNDINGS[ACTIONS.index(action)]
-        worker, boxes =  warehouse.worker, warehouse.boxes
+        worker, boxes = warehouse.worker, warehouse.boxes
 
         # get the new worker position
         new_worker = add_action(worker, next_pos)
@@ -339,13 +341,14 @@ class SokobanPuzzle(search.Problem):
         # copy the state and move the worker to the next position
         # for any box in the position of the new worker position,
         # push it twice the current position of the worker to allow the worker to move forward
-        # if the box isn't in the resultant position return the same position of the box       
-        return warehouse.copy(
+        # if the box isn't in the resultant position return the same position of the box    
+        new_warehouse = warehouse.copy(
             worker = new_worker, 
             boxes = [add_action(worker, next_pos, 2) 
                     if box_pos == new_worker
                     else box_pos 
-                    for box_pos in boxes]).__str__()
+                    for box_pos in boxes])   
+        return new_warehouse.__str__()
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -373,7 +376,8 @@ def check_elem_action_seq(warehouse, action_seq):
                string returned by the method  Warehouse.__str__()
     '''
     # copies warehouse into a new Sokoban puzzle
-    puzzle = SokobanPuzzle(warehouse.copy())
+    wh = warehouse.copy()
+    puzzle = SokobanPuzzle(wh.copy())
 
     Failed = 'Impossible'
 
@@ -381,12 +385,16 @@ def check_elem_action_seq(warehouse, action_seq):
     for action in action_seq:
         # employs the actions and returns the resultant string
         # we can use the result() to get the acted up result of each action
-        result=puzzle.result(warehouse, action)
-        # initialise the warehouse again to get boxes, walls and worker tuples
-        warehouse = sokoban.Warehouse()
-        warehouse.from_string(result)
+        result=puzzle.result(wh.__str__(), action)
 
-        walls, worker, boxes = warehouse.walls, warehouse.worker, warehouse.boxes
+        # get the original location of walls and boxes
+        walls, boxes = wh.walls, wh.boxes
+
+        # update the Warehouse with the new result
+        wh.from_string(result)
+
+        # get the worker from the new result
+        worker = wh.worker
 
         # iterates over walls and ensures the worker hasn't clipped a wall
         for wall in walls:
@@ -398,19 +406,18 @@ def check_elem_action_seq(warehouse, action_seq):
 
         # iterates over boxes
         for box in boxes:
-            # iterates over walls and ensures no boxes have clipped any walls
-            for wall in walls:
-                if wall == box:
-                    return Failed
-
             # ensures no boxes clip one another
             if box in box_stack:
                 return Failed
             # adds the box to set for next box test
             else:
                 box_stack.add(box)
+            # iterates over walls and ensures no boxes have clipped any walls
+            for wall in walls:
+                if box == wall:
+                    return Failed
 
-    return warehouse.__str__()
+    return wh.__str__()
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
