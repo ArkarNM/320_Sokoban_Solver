@@ -43,7 +43,7 @@ EMPTY_STRING = ''
 # different types of target squares
 TARGETS = [TARGET_SQUARE, PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET]
 
-# helper for corners
+# helper for corners (x, y)
 SURROUNDINGS = [(0, -1), (-1, 0), (0, 1), (1, 0)]
 ACTIONS = ['Up', 'Left', 'Down', 'Right']
 
@@ -58,6 +58,12 @@ def add_action(state, action, scale=1):
     (s_x, s_y) = state
     (a_x, a_y) = action
     return s_x + (scale * a_x), s_y + (scale * a_y)
+
+def flip_tuple(tup):
+    """
+    flips the tuple from x,y to row, col (y, x)
+    """
+    return (tup[1], tup[0])
 
 
 def check_if_corner_cell(warehouseMatrix, dst):
@@ -302,21 +308,42 @@ class SokobanPuzzle(search.Problem):
         warehouse.from_string(state)
 
         walls, worker, boxes = warehouse.walls, warehouse.worker, warehouse.boxes
-        
-        # enumerate through possible surroundings
-        for i, surr in enumerate(SURROUNDINGS):
-            # get the new position of adding the move to the worker
-            test_pos = add_action(worker, surr)
-            # test it's not a wall
-            if test_pos not in walls:
-                # if it's within a box position test new position of box
-                if test_pos in boxes:
-                    test_box = add_action(worker, surr, 2)
-                    # ensure the new box position doesn't merge with a wall, box or taboo cell
-                    if test_box not in self.taboo_cells and test_box not in boxes and test_box not in walls:
+
+        if self.macro:
+            # macro actions
+            # go through boxes and determine what worker can do to them
+            for box in boxes:
+                # enumerate through possible surroundings
+                for i, surr in enumerate(SURROUNDINGS):
+                    # new position of the box when pushed
+                    test_pos = add_action(box, surr)
+                    # if we can't go there then it's not a valid move
+                    if can_go_there(warehouse, flip_tuple(test_pos)) or worker == test_pos:
+                        # new position of the box when pushed, opposition direction of current surrounding
+                        new_box_pos = add_action(box, surr, -1)
+                        if new_box_pos not in boxes and new_box_pos not in walls:
+                         # if allow taboo push, yield action or if test box not in taboo_cells
+                            if self.allow_taboo_push or new_box_pos not in self.taboo_cells:
+                                # get the opposite of the current action as in worker goes 'Left' but push box 'Right'
+                                yield flip_tuple(box), ACTIONS[(i+2) % 4]                    
+        else:
+            # elementary actions
+            # enumerate through possible surroundings
+            for i, surr in enumerate(SURROUNDINGS):
+                # get the new position of adding the move to the worker
+                test_pos = add_action(worker, surr)
+                # test it's not a wall
+                if test_pos not in walls:
+                    # if it's within a box position test new position of box
+                    if test_pos in boxes:
+                        test_box = add_action(worker, surr, 2)
+                        # ensure the new box position doesn't merge with a wall, box
+                        if test_box not in boxes and test_box not in walls:
+                            # if allow taboo push, yield action or if not allowing, test box not in taboo_cells
+                            if self.allow_taboo_push or test_box not in self.taboo_cells:
+                                yield ACTIONS[i]
+                    else:
                         yield ACTIONS[i]
-                else:
-                    yield ACTIONS[i]        
 
     def goal_test(self, state):
         # goal test to ensure all boxes are in a target_square
@@ -330,13 +357,21 @@ class SokobanPuzzle(search.Problem):
         # initialise new warehouse to work on
         warehouse = sokoban.Warehouse()
         warehouse.from_string(state)
-        
-        # convert action ie 'Left' into tuple (-1, 0)
-        next_pos = SURROUNDINGS[ACTIONS.index(action)]
+
         worker, boxes = warehouse.worker, warehouse.boxes
 
-        # get the new worker position
-        new_worker = add_action(worker, next_pos)
+        if self.macro:
+            # convert action ie 'Left' into tuple (-1, 0)
+            next_pos = SURROUNDINGS[ACTIONS.index(action[1])]
+            # get the new worker position, flip the action because it's row, col (y, x) not x, y
+            new_worker = flip_tuple(action[0])
+        else:
+            # convert action ie 'Left' into tuple (-1, 0)
+            next_pos = SURROUNDINGS[ACTIONS.index(action)]
+            # get the new worker position
+            new_worker = add_action(worker, next_pos)
+        
+        print(action, worker, next_pos, new_worker)
 
         # copy the state and move the worker to the next position
         # for any box in the position of the new worker position,
@@ -344,10 +379,13 @@ class SokobanPuzzle(search.Problem):
         # if the box isn't in the resultant position return the same position of the box    
         new_warehouse = warehouse.copy(
             worker = new_worker, 
-            boxes = [add_action(worker, next_pos, 2) 
+            boxes = [add_action(new_worker, next_pos) 
                     if box_pos == new_worker
                     else box_pos 
                     for box_pos in boxes])   
+
+        print(warehouse, new_warehouse)
+
         return new_warehouse.__str__()
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -438,49 +476,10 @@ def solve_sokoban_elem(warehouse):
             If the puzzle is already in a goal state, simply return []
     '''
 
-    def heuristic(n):
-        """
-        heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
-        """
-        # initialise new warehouse to work on and get new tuples
-        current_warehouse = sokoban.Warehouse()
-        current_warehouse.from_string(n.state)
-        
-        worker, boxes, targets = current_warehouse.worker, current_warehouse.boxes, current_warehouse.targets
-
-        worker_to_box_distances, box_to_target_totals = list(), list()
-        
-        # iterate through boxes to find the distance for each from worker
-        for box in boxes:
-            worker_to_box_distances.append(manhattan_distance(worker, box))
-
-        # iterate through each perm of targets to find the distance between each box
-        for targets_perm in itertools.permutations(targets):
-            total_distance = 0
-            # combines targets and boxes in tuples as in (target, box) 
-            zipped_tuples = zip(targets_perm, boxes)
-            # for each target and box get the manhattan distance for each and add that to a total 
-            # so we have the total distance of all boxes to targets in this permuation
-            for target, box in zipped_tuples:
-                total_distance += manhattan_distance(target, box)
-            box_to_target_totals.append(total_distance)
-
-        # return the smallest worker to box distance and smallest box to target total distance
-        return min(worker_to_box_distances) + min(box_to_target_totals)
-
     path = search.astar_graph_search(SokobanPuzzle(warehouse), heuristic)
 
-    def getPath(path):
-        for node in path.path():
-            if node.action is not None:
-                if isinstance(node.action, list):
-                    for action in node.action:
-                        yield action
-                else:
-                    yield node.action
-                    
     if path is not None:
-        return [action for action in getPath(path)]
+        return path.solution()
     else: 
         return 'Impossible'
 
@@ -525,6 +524,38 @@ def can_go_there(warehouse, dst):
     return path is not None
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+
+def heuristic(n):
+    """
+    heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
+    """
+    # initialise new warehouse to work on and get new tuples
+    current_warehouse = sokoban.Warehouse()
+    current_warehouse.from_string(n.state)
+    
+    worker, boxes, targets = current_warehouse.worker, current_warehouse.boxes, current_warehouse.targets
+
+    worker_to_box_distances, box_to_target_totals = list(), list()
+    
+    # iterate through boxes to find the distance for each from worker
+    for box in boxes:
+        worker_to_box_distances.append(manhattan_distance(worker, box))
+
+    # iterate through each perm of targets to find the distance between each box
+    for targets_perm in itertools.permutations(targets):
+        total_distance = 0
+        # combines targets and boxes in tuples as in (target, box) 
+        zipped_tuples = zip(targets_perm, boxes)
+        # for each target and box get the manhattan distance for each and add that to a total 
+        # so we have the total distance of all boxes to targets in this permuation
+        for target, box in zipped_tuples:
+            total_distance += manhattan_distance(target, box)
+        box_to_target_totals.append(total_distance)
+
+    # return the smallest worker to box distance and smallest box to target total distance
+    return min(worker_to_box_distances) + min(box_to_target_totals)
+
+
 def solve_sokoban_macro(warehouse):
     '''    
     Solve using using A* algorithm and macro actions the puzzle defined in 
@@ -547,10 +578,13 @@ def solve_sokoban_macro(warehouse):
         Otherwise return M a sequence of macro actions that solves the puzzle.
         If the puzzle is already in a goal state, simply return []
     '''
-    
-    ##         "INSERT YOUR CODE HERE"
-    
-    raise NotImplementedError()
+
+    path = search.astar_graph_search(SokobanPuzzle(warehouse, True), heuristic)
+
+    if path is not None:
+        return path.solution()
+    else: 
+        return 'Impossible'
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
