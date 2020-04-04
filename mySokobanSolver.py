@@ -288,13 +288,14 @@ class SokobanPuzzle(search.Problem):
         """
         initialisation function
         """
-        self.initial = warehouse.__str__()
+        warehouseStr = warehouse.__str__()
+        self.initial = warehouseStr
         self.macro = macro
         self.allow_taboo_push = allow_taboo_push
         # get a list of taboo_cells for usage
         self.taboo_cells = set(sokoban.find_2D_iterator(taboo_cells(warehouse).split(sep='\n'), "X"))
         # remove the player from the goal or target_square and move the boxes to the targets
-        self.goal = warehouse.__str__().replace(PLAYER, SPACE).replace(PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET).replace(BOX, SPACE).replace(TARGET_SQUARE, BOX_ON_TARGET)
+        self.goal = warehouseStr.replace(PLAYER, SPACE).replace(PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET).replace(BOX, SPACE).replace(TARGET_SQUARE, BOX_ON_TARGET)
 
     def actions(self, state):
         """
@@ -371,7 +372,7 @@ class SokobanPuzzle(search.Problem):
             # get the new worker position
             new_worker = add_action(worker, next_pos)
         
-        print(action, worker, next_pos, new_worker)
+        #print(action, worker, next_pos, new_worker)
 
         # copy the state and move the worker to the next position
         # for any box in the position of the new worker position,
@@ -384,7 +385,7 @@ class SokobanPuzzle(search.Problem):
                     else box_pos 
                     for box_pos in boxes])   
 
-        print(warehouse, new_warehouse)
+        #print(warehouse, new_warehouse)
 
         return new_warehouse.__str__()
 
