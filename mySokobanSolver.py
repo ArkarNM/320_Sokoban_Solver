@@ -261,6 +261,20 @@ def taboo_cells(warehouse):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+class SokobanPuzzleState(sokoban.Warehouse):
+
+    def __init__(self, warehouse):
+        self.worker = warehouse.worker
+        self.boxes = warehouse.boxes
+        self.targets = warehouse.targets
+        self.walls = warehouse.walls
+        self.ncols = warehouse.ncols
+        self.nrows = warehouse.nrows
+
+    def __lt__(self, a):
+        return (self.worker, self.boxes) > (a.worker, a.boxes)
+
+
 class SokobanPuzzle(search.Problem):
     '''
     An instance of the class 'SokobanPuzzle' represents a Sokoban puzzle.
@@ -288,14 +302,13 @@ class SokobanPuzzle(search.Problem):
         """
         initialisation function
         """
-        warehouseStr = warehouse.__str__()
-        self.initial = warehouseStr
+        self.initial = SokobanPuzzleState(warehouse)
         self.macro = macro
         self.allow_taboo_push = allow_taboo_push
         # get a list of taboo_cells for usage
         self.taboo_cells = set(sokoban.find_2D_iterator(taboo_cells(warehouse).split(sep='\n'), "X"))
         # remove the player from the goal or target_square and move the boxes to the targets
-        self.goal = warehouseStr.replace(PLAYER, SPACE).replace(PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET).replace(BOX, SPACE).replace(TARGET_SQUARE, BOX_ON_TARGET)
+        self.goal = self.initial.__str__().replace(PLAYER, SPACE).replace(PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET).replace(BOX, SPACE).replace(TARGET_SQUARE, BOX_ON_TARGET)
 
     def actions(self, state):
         """
@@ -305,8 +318,7 @@ class SokobanPuzzle(search.Problem):
         'self.allow_taboo_push' and 'self.macro' should be tested to determine
         what type of list of actions is to be returned.
         """
-        warehouse = sokoban.Warehouse()
-        warehouse.from_string(state)
+        warehouse = state
 
         walls, worker, boxes = warehouse.walls, warehouse.worker, warehouse.boxes
 
@@ -349,15 +361,13 @@ class SokobanPuzzle(search.Problem):
     def goal_test(self, state):
         # goal test to ensure all boxes are in a target_square
         # player position is irrelevant so remove
-        return state.replace("@", " ") == self.goal
+        return state.__str__().replace("@", " ") == self.goal
 
     def result(self, state, action):
         """
         action upon the given action and return the new state
         """
-        # initialise new warehouse to work on
-        warehouse = sokoban.Warehouse()
-        warehouse.from_string(state)
+        warehouse = state
 
         worker, boxes = warehouse.worker, warehouse.boxes
 
@@ -378,16 +388,16 @@ class SokobanPuzzle(search.Problem):
         # for any box in the position of the new worker position,
         # push it twice the current position of the worker to allow the worker to move forward
         # if the box isn't in the resultant position return the same position of the box    
-        new_warehouse = warehouse.copy(
+        new_warehouse = SokobanPuzzleState(warehouse.copy(
             worker = new_worker, 
             boxes = [add_action(new_worker, next_pos) 
                     if box_pos == new_worker
                     else box_pos 
-                    for box_pos in boxes])   
+                    for box_pos in boxes]))  
 
         #print(warehouse, new_warehouse)
 
-        return new_warehouse.__str__()
+        return new_warehouse
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -415,22 +425,20 @@ def check_elem_action_seq(warehouse, action_seq):
                string returned by the method  Warehouse.__str__()
     '''
     # copies warehouse into a new Sokoban puzzle
-    wh = warehouse.copy()
-    puzzle = SokobanPuzzle(wh.copy())
+    wh = SokobanPuzzleState(warehouse.copy())
+    puzzle = SokobanPuzzle(warehouse.copy())
 
     Failed = 'Impossible'
 
     # iterates over the actions
     for action in action_seq:
-        # employs the actions and returns the resultant string
-        # we can use the result() to get the acted up result of each action
-        result=puzzle.result(wh.__str__(), action)
 
         # get the original location of walls and boxes
         walls, boxes = wh.walls, wh.boxes
 
-        # update the Warehouse with the new result
-        wh.from_string(result)
+        # employs the actions and returns the resultant string
+        # we can use the result() to get the acted up result of each action
+        wh=puzzle.result(wh, action)
 
         # get the worker from the new result
         worker = wh.worker
@@ -531,8 +539,7 @@ def heuristic(n):
     heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
     """
     # initialise new warehouse to work on and get new tuples
-    current_warehouse = sokoban.Warehouse()
-    current_warehouse.from_string(n.state)
+    current_warehouse = n.state
     
     worker, boxes, targets = current_warehouse.worker, current_warehouse.boxes, current_warehouse.targets
 
