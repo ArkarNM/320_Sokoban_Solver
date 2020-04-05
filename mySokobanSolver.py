@@ -88,16 +88,11 @@ def check_if_along_wall(warehouseMatrix, dst):
             return True
     return False
 
+matrix_to_string = lambda warehouseMatrix : NEW_LINE.join([EMPTY_STRING.join(row) for row in warehouseMatrix])
+matrix_to_string.__doc__ = """converts a 2D array of chars to a string"""
 
-def matrix_to_string(warehouseMatrix):
-    """
-    converts a 2D array of chars to a string
-    """
-    return NEW_LINE.join([EMPTY_STRING.join(row) for row in warehouseMatrix])
-
-def string_to_matrix(warehouseStr):
-    return [list(line) for line in warehouseStr.split(NEW_LINE)]
-
+string_to_matrix = lambda warehouseStr : [list(line) for line in warehouseStr.split(NEW_LINE)]
+string_to_matrix.__doc__ = """converts a string to a 2D array of chars"""
 
 def manhattan_distance(init, end):
         """
@@ -138,15 +133,10 @@ class PathProblem(search.Problem):
                 yield action
 
     # Return the old state, with the action applied.
-    def result(self, state, action):
-        return add_action(state, action)
+    result = lambda self, state, action : add_action(state, action)
 
-    def h(self, n):
-        """
-        heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
-        """
-        return manhattan_distance(self.goal, n.state)
-
+    h = lambda self, n : manhattan_distance(self.goal, n.state)
+    h.__doc__ = """heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|"""
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -267,8 +257,8 @@ class SokobanPuzzleState(sokoban.Warehouse):
         self.ncols = warehouse.ncols
         self.nrows = warehouse.nrows
 
-    def __lt__(self, a):
-        return (self.worker, self.boxes) > (a.worker, a.boxes)
+    __lt__ = lambda self, a : (self.worker, self.boxes) > (a.worker, a.boxes)
+    __lt__.__doc__ = """ """
 
 
 class SokobanPuzzle(search.Problem):
@@ -354,18 +344,15 @@ class SokobanPuzzle(search.Problem):
                     else:
                         yield ACTIONS[i]
 
-    def path_cost(self, c, state1, action, state2):
-        """Return the cost of a solution path that arrives at state2 from
-        state1 via action, assuming cost c to get up to state1. If the problem
-        is such that the path doesn't matter, this function will only look at
-        state2.  If the path does matter, it will consider c and maybe state1
-        and action. The default method costs 1 for every step in the path."""
-        return c + 1
+    path_cost = lambda self, c, state1, action, state2 : c + 1
+    path_cost.__doc__ = """Return the cost of a solution path that arrives at state2 from
+                            state1 via action, assuming cost c to get up to state1. If the problem
+                            is such that the path doesn't matter, this function will only look at
+                            state2.  If the path does matter, it will consider c and maybe state1
+                            and action. The default method costs 1 for every step in the path."""
 
-    def goal_test(self, state):
-        # goal test to ensure all boxes are in a target_square
-        # player position is irrelevant so remove
-        return state.__str__().replace("@", " ") == self.goal
+    goal_test = lambda self, state : state.__str__().replace("@", " ") == self.goal
+    goal_test.__doc__ = """goal test to ensure all boxes are in a target_square, player position is irrelevant so remove"""
 
     def result(self, state, action):
         """
