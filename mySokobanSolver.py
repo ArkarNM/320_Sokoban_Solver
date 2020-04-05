@@ -314,9 +314,7 @@ class SokobanPuzzle(search.Problem):
         'self.allow_taboo_push' and 'self.macro' should be tested to determine
         what type of list of actions is to be returned.
         """
-        warehouse = state
-
-        walls, worker, boxes = warehouse.walls, warehouse.worker, warehouse.boxes
+        walls, worker, boxes = state.walls, state.worker, state.boxes
 
         if self.macro:
             # macro actions
@@ -327,7 +325,7 @@ class SokobanPuzzle(search.Problem):
                     # new position of the box when pushed
                     test_pos = add_action(box, surr)
                     # if we can't go there then it's not a valid move
-                    if can_go_there(warehouse, flip_tuple(test_pos)) or worker == test_pos:
+                    if can_go_there(state, flip_tuple(test_pos)) or worker == test_pos:
                         # new position of the box when pushed, opposition direction of current surrounding
                         new_box_pos = add_action(box, surr, -1)
                         if new_box_pos not in boxes and new_box_pos not in walls:
@@ -371,9 +369,7 @@ class SokobanPuzzle(search.Problem):
         """
         action upon the given action and return the new state
         """
-        warehouse = state
-
-        worker, boxes = warehouse.worker, warehouse.boxes
+        worker, boxes = state.worker, state.boxes
 
         if self.macro:
             # convert action ie 'Left' into tuple (-1, 0)
@@ -390,14 +386,12 @@ class SokobanPuzzle(search.Problem):
         # for any box in the position of the new worker position,
         # push it twice the current position of the worker to allow the worker to move forward
         # if the box isn't in the resultant position return the same position of the box    
-        new_warehouse = SokobanPuzzleState(warehouse.copy(
+        return SokobanPuzzleState(state.copy(
             worker = new_worker, 
             boxes = [add_action(box_pos, next_pos) 
                     if box_pos == new_worker
                     else box_pos 
                     for box_pos in boxes]))
-
-        return new_warehouse
 
     def h(self, n):
         """
@@ -455,8 +449,8 @@ def check_elem_action_seq(warehouse, action_seq):
                string returned by the method  Warehouse.__str__()
     '''
     # copies warehouse into a new Sokoban puzzle
-    wh = SokobanPuzzleState(warehouse.copy())
-    puzzle = SokobanPuzzle(warehouse.copy())
+    wh = SokobanPuzzleState(warehouse)
+    puzzle = SokobanPuzzle(warehouse)
 
     Failed = 'Impossible'
 
