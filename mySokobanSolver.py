@@ -59,12 +59,8 @@ def add_action(state, action, scale=1):
     (a_x, a_y) = action
     return s_x + (scale * a_x), s_y + (scale * a_y)
 
-def flip_tuple(tup):
-    """
-    flips the tuple from x,y to row, col (y, x)
-    """
-    return (tup[1], tup[0])
-
+flip_tuple = lambda tup : (tup[1], tup[0])
+flip_tuple.__doc__ = """flips the tuple from x,y to row, col (y, x)"""
 
 def check_if_corner_cell(warehouseMatrix, dst):
     """
@@ -141,17 +137,13 @@ class PathProblem(search.Problem):
     def result(self, state, action):
         return add_action(state, action)
 
-class Heuristic():
-    def __init__(self, col, row):
-        self.col = col
-        self.row = row
-
-    def manhattan_distance(self, n):
+    def h(self, n):
         """
         heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
         """
-        return manhattan_distance((self.row, self.col), n.state)
-        
+        return manhattan_distance(self.goal, n.state)
+
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def my_team():
@@ -337,7 +329,7 @@ class SokobanPuzzle(search.Problem):
                         if new_box_pos not in boxes and new_box_pos not in walls:
                          # if allow taboo push, yield action or if test box not in taboo_cells
                             if self.allow_taboo_push or new_box_pos not in self.taboo_cells:
-                                # get the opposite of the current action as in worker goes 'Left' but push box 'Right'
+                                # get the opposite of the current action as in worker goes 'Left' but pushes box 'Right'
                                 yield flip_tuple(box), ACTIONS[(i+2) % 4]                    
         else:
             # elementary actions
@@ -390,7 +382,7 @@ class SokobanPuzzle(search.Problem):
         # if the box isn't in the resultant position return the same position of the box    
         new_warehouse = SokobanPuzzleState(warehouse.copy(
             worker = new_worker, 
-            boxes = [add_action(new_worker, next_pos) 
+            boxes = [add_action(box_pos, next_pos) 
                     if box_pos == new_worker
                     else box_pos 
                     for box_pos in boxes]))  
@@ -398,6 +390,36 @@ class SokobanPuzzle(search.Problem):
         #print(warehouse, new_warehouse)
 
         return new_warehouse
+
+    def h(self, n):
+        """
+        heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
+        """
+        # initialise new warehouse to work on and get new tuples
+        current_warehouse = n.state
+        
+        worker, boxes, targets = current_warehouse.worker, current_warehouse.boxes, current_warehouse.targets
+
+        worker_to_box_distances, box_to_target_totals = list(), list()
+        
+        # iterate through boxes to find the distance for each from worker
+        for box in boxes:
+            worker_to_box_distances.append(manhattan_distance(worker, box))
+
+        # iterate through each perm of targets to find the distance between each box
+        for targets_perm in itertools.permutations(targets):
+            total_distance = 0
+            # combines targets and boxes in tuples as in (target, box) 
+            zipped_tuples = zip(targets_perm, boxes)
+            # for each target and box get the manhattan distance for each and add that to a total 
+            # so we have the total distance of all boxes to targets in this permuation
+            for target, box in zipped_tuples:
+                total_distance += manhattan_distance(target, box)
+            box_to_target_totals.append(total_distance)
+
+        # return the smallest worker to box distance and smallest box to target total distance
+        return min(worker_to_box_distances) + min(box_to_target_totals)
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -485,7 +507,9 @@ def solve_sokoban_elem(warehouse):
             If the puzzle is already in a goal state, simply return []
     '''
 
-    path = search.astar_graph_search(SokobanPuzzle(warehouse), heuristic)
+    puzzle = SokobanPuzzle(warehouse)
+
+    path = search.astar_graph_search(puzzle, puzzle.h)
 
     if path is not None:
         return path.solution()
@@ -520,48 +544,13 @@ def can_go_there(warehouse, dst):
     if cell not in ALLOWED_CELLS:
         return False
   
-    h = Heuristic(col, row)
+    puzzle =  PathProblem(warehouse.worker, warehouse, (col, row))
 
     # check if a valid path from the worker to the coordinate provided exists
-    path = search.astar_graph_search(
-                PathProblem(
-                        warehouse.worker, 
-                        warehouse, 
-                        (col, row)),
-                        h.manhattan_distance)
+    path = search.astar_graph_search(puzzle, puzzle.h)
 
     return path is not None
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-
-def heuristic(n):
-    """
-    heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
-    """
-    # initialise new warehouse to work on and get new tuples
-    current_warehouse = n.state
-    
-    worker, boxes, targets = current_warehouse.worker, current_warehouse.boxes, current_warehouse.targets
-
-    worker_to_box_distances, box_to_target_totals = list(), list()
-    
-    # iterate through boxes to find the distance for each from worker
-    for box in boxes:
-        worker_to_box_distances.append(manhattan_distance(worker, box))
-
-    # iterate through each perm of targets to find the distance between each box
-    for targets_perm in itertools.permutations(targets):
-        total_distance = 0
-        # combines targets and boxes in tuples as in (target, box) 
-        zipped_tuples = zip(targets_perm, boxes)
-        # for each target and box get the manhattan distance for each and add that to a total 
-        # so we have the total distance of all boxes to targets in this permuation
-        for target, box in zipped_tuples:
-            total_distance += manhattan_distance(target, box)
-        box_to_target_totals.append(total_distance)
-
-    # return the smallest worker to box distance and smallest box to target total distance
-    return min(worker_to_box_distances) + min(box_to_target_totals)
 
 
 def solve_sokoban_macro(warehouse):
@@ -587,7 +576,9 @@ def solve_sokoban_macro(warehouse):
         If the puzzle is already in a goal state, simply return []
     '''
 
-    path = search.astar_graph_search(SokobanPuzzle(warehouse, True), heuristic)
+    puzzle = SokobanPuzzle(warehouse, True)
+
+    path = search.astar_graph_search(puzzle, puzzle.h)
 
     if path is not None:
         return path.solution()
