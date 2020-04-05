@@ -373,8 +373,6 @@ class SokobanPuzzle(search.Problem):
             next_pos = SURROUNDINGS[ACTIONS.index(action)]
             # get the new worker position
             new_worker = add_action(worker, next_pos)
-        
-        #print(action, worker, next_pos, new_worker)
 
         # copy the state and move the worker to the next position
         # for any box in the position of the new worker position,
@@ -385,9 +383,7 @@ class SokobanPuzzle(search.Problem):
             boxes = [add_action(box_pos, next_pos) 
                     if box_pos == new_worker
                     else box_pos 
-                    for box_pos in boxes]))  
-
-        #print(warehouse, new_warehouse)
+                    for box_pos in boxes]))
 
         return new_warehouse
 
@@ -507,9 +503,7 @@ def solve_sokoban_elem(warehouse):
             If the puzzle is already in a goal state, simply return []
     '''
 
-    puzzle = SokobanPuzzle(warehouse)
-
-    path = search.astar_graph_search(puzzle, puzzle.h)
+    path = search.astar_graph_search(SokobanPuzzle(warehouse))
 
     if path is not None:
         return path.solution()
@@ -543,11 +537,9 @@ def can_go_there(warehouse, dst):
     cell = warehouseMatrix[row][col]
     if cell not in ALLOWED_CELLS:
         return False
-  
-    puzzle =  PathProblem(warehouse.worker, warehouse, (col, row))
 
     # check if a valid path from the worker to the coordinate provided exists
-    path = search.astar_graph_search(puzzle, puzzle.h)
+    path = search.astar_graph_search(PathProblem(warehouse.worker, warehouse, (col, row)))
 
     return path is not None
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -576,9 +568,7 @@ def solve_sokoban_macro(warehouse):
         If the puzzle is already in a goal state, simply return []
     '''
 
-    puzzle = SokobanPuzzle(warehouse, True)
-
-    path = search.astar_graph_search(puzzle, puzzle.h)
+    path = search.astar_graph_search(SokobanPuzzle(warehouse, True))
 
     if path is not None:
         return path.solution()
