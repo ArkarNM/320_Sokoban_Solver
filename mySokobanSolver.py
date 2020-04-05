@@ -247,20 +247,6 @@ def taboo_cells(warehouse):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-class SokobanPuzzleState(sokoban.Warehouse):
-
-    def __init__(self, warehouse):
-        self.worker = warehouse.worker
-        self.boxes = warehouse.boxes
-        self.targets = warehouse.targets
-        self.walls = warehouse.walls
-        self.ncols = warehouse.ncols
-        self.nrows = warehouse.nrows
-
-    __lt__ = lambda self, a : (self.worker, self.boxes) > (a.worker, a.boxes)
-    __lt__.__doc__ = """ """
-
-
 class SokobanPuzzle(search.Problem):
     '''
     An instance of the class 'SokobanPuzzle' represents a Sokoban puzzle.
@@ -288,13 +274,14 @@ class SokobanPuzzle(search.Problem):
         """
         initialisation function
         """
-        self.initial = SokobanPuzzleState(warehouse)
+        whStr = warehouse.__str__()
+        self.initial = whStr
         self.macro = macro
         self.allow_taboo_push = allow_taboo_push
         # get a list of taboo_cells for usage
         self.taboo_cells = set(sokoban.find_2D_iterator(taboo_cells(warehouse).split(sep='\n'), "X"))
         # remove the player from the goal or target_square and move the boxes to the targets
-        self.goal = self.initial.__str__().replace(PLAYER, SPACE).replace(PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET).replace(BOX, SPACE).replace(TARGET_SQUARE, BOX_ON_TARGET)
+        self.goal = whStr.replace(PLAYER, SPACE).replace(PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET).replace(BOX, SPACE).replace(TARGET_SQUARE, BOX_ON_TARGET)
 
     def actions(self, state):
         """
@@ -304,7 +291,10 @@ class SokobanPuzzle(search.Problem):
         'self.allow_taboo_push' and 'self.macro' should be tested to determine
         what type of list of actions is to be returned.
         """
-        walls, worker, boxes = state.walls, state.worker, state.boxes
+        warehouse = sokoban.Warehouse()
+        warehouse.from_string(state)
+
+        walls, worker, boxes = warehouse.walls, warehouse.worker, warehouse.boxes
 
         if self.macro:
             # macro actions
@@ -315,7 +305,7 @@ class SokobanPuzzle(search.Problem):
                     # new position of the box when pushed
                     test_pos = add_action(box, surr)
                     # if we can't go there then it's not a valid move
-                    if can_go_there(state, flip_tuple(test_pos)) or worker == test_pos:
+                    if can_go_there(warehouse, flip_tuple(test_pos)) or worker == test_pos:
                         # new position of the box when pushed, opposition direction of current surrounding
                         new_box_pos = add_action(box, surr, -1)
                         if new_box_pos not in boxes and new_box_pos not in walls:
@@ -356,7 +346,9 @@ class SokobanPuzzle(search.Problem):
         """
         action upon the given action and return the new state
         """
-        worker, boxes = state.worker, state.boxes
+        warehouse = sokoban.Warehouse()
+        warehouse.from_string(state)
+        worker, boxes = warehouse.worker, warehouse.boxes
 
         if self.macro:
             # convert action ie 'Left' into tuple (-1, 0)
@@ -373,41 +365,58 @@ class SokobanPuzzle(search.Problem):
         # for any box in the position of the new worker position,
         # push it twice the current position of the worker to allow the worker to move forward
         # if the box isn't in the resultant position return the same position of the box    
-        return SokobanPuzzleState(state.copy(
+        return warehouse.copy(
             worker = new_worker, 
             boxes = [add_action(box_pos, next_pos) 
                     if box_pos == new_worker
                     else box_pos 
-                    for box_pos in boxes]))
+                    for box_pos in boxes]).__str__()
 
     def h(self, n):
         """
         heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
         """
         # initialise new warehouse to work on and get new tuples
-        current_warehouse = n.state
-        
-        worker, boxes, targets = current_warehouse.worker, current_warehouse.boxes, current_warehouse.targets
+        warehouse = sokoban.Warehouse()
+        warehouse.from_string(n.state)
 
-        worker_to_box_distances, box_to_target_totals = list(), list()
-        
-        # iterate through boxes to find the distance for each from worker
-        for box in boxes:
-            worker_to_box_distances.append(manhattan_distance(worker, box))
+        worker, boxes, targets = warehouse.worker, warehouse.boxes, warehouse.targets
 
-        # iterate through each perm of targets to find the distance between each box
-        for targets_perm in itertools.permutations(targets):
-            total_distance = 0
-            # combines targets and boxes in tuples as in (target, box) 
-            zipped_tuples = zip(targets_perm, boxes)
-            # for each target and box get the manhattan distance for each and add that to a total 
-            # so we have the total distance of all boxes to targets in this permuation
-            for target, box in zipped_tuples:
-                total_distance += manhattan_distance(target, box)
-            box_to_target_totals.append(total_distance)
+        if self.macro:
+            box_to_target_totals = list()
+            # iterate through each perm of targets to find the distance between each box
+            for targets_perm in itertools.permutations(targets):
+                total_distance = 0
+                # combines targets and boxes in tuples as in (target, box) 
+                zipped_tuples = zip(targets_perm, boxes)
+                # for each target and box get the manhattan distance for each and add that to a total 
+                # so we have the total distance of all boxes to targets in this permuation
+                for target, box in zipped_tuples:
+                    total_distance += manhattan_distance(target, box)
+                box_to_target_totals.append(total_distance)
 
-        # return the smallest worker to box distance and smallest box to target total distance
-        return min(worker_to_box_distances) + min(box_to_target_totals)
+            # return the smallest worker to box distance and smallest box to target total distance
+            return min(box_to_target_totals)
+        else:
+            worker_to_box_distances, box_to_target_totals = list(), list()
+            
+            # iterate through boxes to find the distance for each from worker
+            for box in boxes:
+                worker_to_box_distances.append(manhattan_distance(worker, box))
+
+            # iterate through each perm of targets to find the distance between each box
+            for targets_perm in itertools.permutations(targets):
+                total_distance = 0
+                # combines targets and boxes in tuples as in (target, box) 
+                zipped_tuples = zip(targets_perm, boxes)
+                # for each target and box get the manhattan distance for each and add that to a total 
+                # so we have the total distance of all boxes to targets in this permuation
+                for target, box in zipped_tuples:
+                    total_distance += manhattan_distance(target, box)
+                box_to_target_totals.append(total_distance)
+
+            # return the smallest worker to box distance and smallest box to target total distance
+            return min(worker_to_box_distances) + min(box_to_target_totals)
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -436,8 +445,7 @@ def check_elem_action_seq(warehouse, action_seq):
                string returned by the method  Warehouse.__str__()
     '''
     # copies warehouse into a new Sokoban puzzle
-    wh = SokobanPuzzleState(warehouse)
-    puzzle = SokobanPuzzle(warehouse)
+    puzzle = SokobanPuzzle(warehouse.copy())
 
     Failed = 'Impossible'
 
@@ -445,14 +453,14 @@ def check_elem_action_seq(warehouse, action_seq):
     for action in action_seq:
 
         # get the original location of walls and boxes
-        walls, boxes = wh.walls, wh.boxes
+        walls, boxes = warehouse.walls, warehouse.boxes
 
         # employs the actions and returns the resultant string
         # we can use the result() to get the acted up result of each action
-        wh=puzzle.result(wh, action)
+        warehouse.from_string(puzzle.result(warehouse.__str__(), action))
 
         # get the worker from the new result
-        worker = wh.worker
+        worker = warehouse.worker
 
         # iterates over walls and ensures the worker hasn't clipped a wall
         for wall in walls:
@@ -475,7 +483,7 @@ def check_elem_action_seq(warehouse, action_seq):
                 if box == wall:
                     return Failed
 
-    return wh.__str__()
+    return warehouse.__str__()
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

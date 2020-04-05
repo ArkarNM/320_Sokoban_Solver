@@ -13,7 +13,7 @@ def test_elem(n):
     wh.load_warehouse(problem_file)
     time1 = time.time()
     solve_sokoban_elem(wh)
-    print('{:06.4f}s'.format(time.time() - time1))
+    print('{:06.3f}s'.format(time.time() - time1))
 
 def test_macro(n):
     problem_file = "./warehouses/warehouse_%s.txt" % str(n)
@@ -22,17 +22,17 @@ def test_macro(n):
     wh.load_warehouse(problem_file)
     time1 = time.time()
     solve_sokoban_macro(wh)
-    print('{:06.4f}s'.format(time.time() - time1))
+    print('{:06.3f}s'.format(time.time() - time1))
 
 if __name__ == "__main__":
 
     print("ELEMENTARY TESTS")
-    # test_elem("07")
+    test_elem("07")
     test_elem("09")
     test_elem("11")
     test_elem("47")
     test_elem("81")
-    # test_elem("147")
+    test_elem("147")
 
     print("MACRO TESTS")
     test_macro("07")
