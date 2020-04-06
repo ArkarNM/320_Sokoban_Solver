@@ -59,9 +59,6 @@ def add_action(state, action, scale=1):
     (a_x, a_y) = action
     return s_x + (scale * a_x), s_y + (scale * a_y)
 
-flip_tuple = lambda tup : (tup[1], tup[0])
-flip_tuple.__doc__ = """flips the tuple from x,y to row, col (y, x)"""
-
 def check_if_corner_cell(warehouseMatrix, dst):
     """
     checks the warehouse and determines if the cell is surrounded by a corner
@@ -305,14 +302,14 @@ class SokobanPuzzle(search.Problem):
                     # new position of the box when pushed
                     test_pos = add_action(box, surr)
                     # if we can't go there then it's not a valid move
-                    if can_go_there(warehouse, flip_tuple(test_pos)) or worker == test_pos:
+                    if can_go_there(warehouse, tuple(reversed(test_pos))) or worker == test_pos:
                         # new position of the box when pushed, opposition direction of current surrounding
                         new_box_pos = add_action(box, surr, -1)
                         if new_box_pos not in boxes and new_box_pos not in walls:
                          # if allow taboo push, yield action or if test box not in taboo_cells
                             if self.allow_taboo_push or new_box_pos not in self.taboo_cells:
                                 # get the opposite of the current action as in worker goes 'Left' but pushes box 'Right'
-                                yield flip_tuple(box), ACTIONS[(i+2) % 4]                    
+                                yield tuple(reversed(box)), ACTIONS[(i+2) % 4]                    
         else:
             # elementary actions
             # enumerate through possible surroundings
@@ -354,7 +351,7 @@ class SokobanPuzzle(search.Problem):
             # convert action ie 'Left' into tuple (-1, 0)
             next_pos = SURROUNDINGS[ACTIONS.index(action[1])]
             # get the new worker position, flip the action because it's row, col (y, x) not x, y
-            new_worker = flip_tuple(action[0])
+            new_worker = tuple(reversed(action[0]))
         else:
             # convert action ie 'Left' into tuple (-1, 0)
             next_pos = SURROUNDINGS[ACTIONS.index(action)]
