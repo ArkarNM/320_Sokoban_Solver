@@ -99,6 +99,13 @@ def manhattan_distance(init, end):
         (e_x, e_y) = end
         return abs(e_x - i_x) + abs(e_y - i_y)
 
+path_cost = lambda self, c, state1, action, state2 : c + 1
+path_cost.__doc__ = """Return the cost of a solution path that arrives at state2 from
+                        state1 via action, assuming cost c to get up to state1. If the problem
+                        is such that the path doesn't matter, this function will only look at
+                        state2.  If the path does matter, it will consider c and maybe state1
+                        and action. The default method costs 1 for every step in the path."""
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 ## Helper Classes ##
@@ -109,14 +116,6 @@ class PathProblem(search.Problem):
         self.initial = initial
         self.warehouse = warehouse
         self.goal = goal
-
-    def path_cost(self, c, state1, action, state2):
-        """Return the cost of a solution path that arrives at state2 from
-        state1 via action, assuming cost c to get up to state1. If the problem
-        is such that the path doesn't matter, this function will only look at
-        state2.  If the path does matter, it will consider c and maybe state1
-        and action. The default method costs 1 for every step in the path."""
-        return c + 1
 
     # list of possible actions
     def actions(self, state):
@@ -328,13 +327,6 @@ class SokobanPuzzle(search.Problem):
                                 yield ACTIONS[i]
                     else:
                         yield ACTIONS[i]
-
-    path_cost = lambda self, c, state1, action, state2 : c + 1
-    path_cost.__doc__ = """Return the cost of a solution path that arrives at state2 from
-                            state1 via action, assuming cost c to get up to state1. If the problem
-                            is such that the path doesn't matter, this function will only look at
-                            state2.  If the path does matter, it will consider c and maybe state1
-                            and action. The default method costs 1 for every step in the path."""
 
     goal_test = lambda self, state : state.__str__().replace("@", " ") == self.goal
     goal_test.__doc__ = """goal test to ensure all boxes are in a target_square, player position is irrelevant so remove"""
