@@ -27,18 +27,18 @@ def test_macro(n):
 if __name__ == "__main__":
 
     print("ELEMENTARY TESTS")
-    test_elem("07")
+    # test_elem("07")
     test_elem("09")
     test_elem("11")
     test_elem("47")
     test_elem("81")
-    test_elem("147")
+    # test_elem("147")
 
     print("MACRO TESTS")
-    test_macro("07")
+    # test_macro("07")
     test_macro("09")
     test_macro("11")
     test_macro("47")
     test_macro("81")
-    test_macro("147")
+    # test_macro("147")
 

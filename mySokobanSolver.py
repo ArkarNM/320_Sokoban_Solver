@@ -447,7 +447,7 @@ def check_elem_action_seq(warehouse, action_seq):
         walls, boxes = set(warehouse.walls), warehouse.boxes
 
         # employs the actions and returns the resultant string
-        # we can use the result() to get the acted up result of each action
+        # we can use the result() to get the acted upon result of each action
         warehouse.from_string(puzzle.result(warehouse.__str__(), action))
 
         # get the worker from the new result
@@ -457,19 +457,14 @@ def check_elem_action_seq(warehouse, action_seq):
         if worker in walls:
             return FAILED
 
-        # helper to ensure boxes aren't stacked
+        # ensures no boxes stack upon each other
+        if len(boxes) != len(set(boxes)):
+            return FAILED
 
-        box_stack = set()
-
-        # iterates over boxes
-        for box in boxes:
-            # ensures no boxes clip one another and no boxes have
-            # clipped any walls
-            if box in box_stack or box in walls:
-                return FAILED
-            # adds the box to set for next box test
-            else:
-                box_stack.add(box)
+        # ensures no boxes have clipped any walls
+        box_in_walls = [box in walls for box in boxes]
+        if any(box_in_walls):
+            return FAILED
 
     return warehouse.__str__()
 
