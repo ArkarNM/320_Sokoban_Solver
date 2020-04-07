@@ -30,6 +30,7 @@ import time
 
 ## Global Variables ##
 
+# sokoban squares
 SPACE = ' '
 WALL = '#'
 BOX = '$'
@@ -47,6 +48,9 @@ TARGETS = [TARGET_SQUARE, PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET]
 # helper for corners (x, y)
 SURROUNDINGS = [(0, -1), (-1, 0), (0, 1), (1, 0)]
 ACTIONS = ['Up', 'Left', 'Down', 'Right']
+
+# game outcome
+FAILED = 'Impossible'
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -436,8 +440,6 @@ def check_elem_action_seq(warehouse, action_seq):
     # copies warehouse into a new Sokoban puzzle
     puzzle = SokobanPuzzle(warehouse.copy())
 
-    Failed = 'Impossible'
-
     # iterates over the actions
     for action in action_seq:
 
@@ -453,22 +455,21 @@ def check_elem_action_seq(warehouse, action_seq):
 
         # ensures the worker hasn't clipped a wall
         if worker in walls:
-            return Failed
+            return FAILED
 
         # helper to ensure boxes aren't stacked
+
         box_stack = set()
 
         # iterates over boxes
         for box in boxes:
-            # ensures no boxes clip one another
-            if box in box_stack:
-                return Failed
+            # ensures no boxes clip one another and no boxes have
+            # clipped any walls
+            if box in box_stack or box in walls:
+                return FAILED
             # adds the box to set for next box test
             else:
                 box_stack.add(box)
-            # ensures no boxes have clipped any walls
-            if box in walls:
-                return Failed
 
     return warehouse.__str__()
 
@@ -496,7 +497,7 @@ def solve_sokoban_elem(warehouse):
     if path is not None:
         return path.solution()
     else: 
-        return 'Impossible'
+        return FAILED
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -560,7 +561,7 @@ def solve_sokoban_macro(warehouse):
     if path is not None:
         return path.solution()
     else: 
-        return 'Impossible'
+        return FAILED
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
