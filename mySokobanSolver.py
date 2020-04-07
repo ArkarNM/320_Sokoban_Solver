@@ -24,6 +24,7 @@ This is not negotiable!
 import search 
 import sokoban
 import itertools
+import time
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -55,56 +56,41 @@ def add_action(state, action, scale=1):
     """
     adds the action tuple to the state tuple and returns
     """
-    (s_x, s_y) = state
-    (a_x, a_y) = action
-    return s_x + (scale * a_x), s_y + (scale * a_y)
+    return state[0] + (scale * action[0]), state[1] + (scale * action[1])
 
-def check_if_corner_cell(warehouseMatrix, dst):
-    """
-    checks the warehouse and determines if the cell is surrounded by a corner
-    """
-    (row, col) = dst
+def check_if_corner_cell(walls, dst):
+    """checks the warehouse and determines if the cell is surrounded by a corner"""
     for i in range(len(SURROUNDINGS)):
-        (a_row, a_col) = SURROUNDINGS[i]
-        (b_row, b_col) = SURROUNDINGS[(i+1) % 4]
+        (a_x, a_y) = SURROUNDINGS[i]
+        (b_x, b_y) = SURROUNDINGS[(i+1) % 4]
 
         # if both are walls, as in is a corner, then return True
-        if warehouseMatrix[row + a_row][col + a_col] is WALL and warehouseMatrix[row + b_row][col + b_col] is WALL:
+        if (dst[1] + a_x, dst[0] + a_y) in walls and (dst[1] + b_x, dst[0] + b_y) in walls:
             return True
     return False
 
-
-def check_if_along_wall(warehouseMatrix, dst):
-    """
-    checks the warehouse and determines if the cell is along a wall
-    """
+def check_if_along_wall(walls, dst):
+    """checks the warehouse and determines if the cell is along a wall"""
     (row, col) = dst
-    for (a_row, a_col) in SURROUNDINGS:
+    for (a_x, a_y) in SURROUNDINGS:
         # if next to wall then return True
-        if warehouseMatrix[row + a_row][col + a_col] is WALL:
+        if (col + a_x, row + a_y) in walls:
             return True
     return False
 
-matrix_to_string = lambda warehouseMatrix : NEW_LINE.join([EMPTY_STRING.join(row) for row in warehouseMatrix])
-matrix_to_string.__doc__ = """converts a 2D array of chars to a string"""
+def matrix_to_string(warehouseM):
+    """converts a 2D array of chars to a string"""
+    return NEW_LINE.join([EMPTY_STRING.join(row) for row in warehouseM])
 
-string_to_matrix = lambda warehouseStr : [list(line) for line in warehouseStr.split(NEW_LINE)]
-string_to_matrix.__doc__ = """converts a string to a 2D array of chars"""
+def string_to_matrix(warehouseS):
+    """converts a string to a 2D array of chars"""
+    return [list(line) for line in warehouseS.split(NEW_LINE)]
 
 def manhattan_distance(init, end):
         """
         manhattan distance |x2 - x1| + |y2 - y1|
         """
-        (i_x, i_y) = init
-        (e_x, e_y) = end
-        return abs(e_x - i_x) + abs(e_y - i_y)
-
-path_cost = lambda self, c, state1, action, state2 : c + 1
-path_cost.__doc__ = """Return the cost of a solution path that arrives at state2 from
-                        state1 via action, assuming cost c to get up to state1. If the problem
-                        is such that the path doesn't matter, this function will only look at
-                        state2.  If the path does matter, it will consider c and maybe state1
-                        and action. The default method costs 1 for every step in the path."""
+        return abs(end[0] - init[0]) + abs(end[1] - init[1])
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -114,25 +100,33 @@ class PathProblem(search.Problem):
     # initialises the problem
     def __init__(self, initial, warehouse, goal):
         self.initial = initial
-        self.warehouse = warehouse
+        self.boxes = set(warehouse.boxes)
+        self.walls = set(warehouse.walls)
         self.goal = goal
 
     # list of possible actions
     def actions(self, state):
-        boxes = self.warehouse.boxes
-        walls = self.warehouse.walls
-
         for action in SURROUNDINGS:
             new_state = add_action(state, action)
             # check that the action doesn't result in a wall or box collision
-            if new_state not in boxes and new_state not in walls:
+            if new_state not in self.boxes and new_state not in self.walls:
                 yield action
 
-    # Return the old state, with the action applied.
-    result = lambda self, state, action : add_action(state, action)
+    def path_cost(self, c, state1, action, state2):
+        """Return the cost of a solution path that arrives at state2 from
+            state1 via action, assuming cost c to get up to state1. If the problem
+            is such that the path doesn't matter, this function will only look at
+            state2.  If the path does matter, it will consider c and maybe state1
+            and action. The default method costs 1 for every step in the path."""
+        return c + 1
 
-    h = lambda self, n : manhattan_distance(self.goal, n.state)
-    h.__doc__ = """heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|"""
+    # Return the old state, with the action applied.
+    def result(self, state, action):
+        return add_action(state, action)
+
+    def h(self, n):
+        """heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|"""
+        return manhattan_distance(self.goal, n.state)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -145,7 +139,6 @@ def my_team():
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 
 def taboo_cells(warehouse):
     '''  
@@ -172,65 +165,66 @@ def taboo_cells(warehouse):
     # get string
     warehouseStr = warehouse.__str__()
 
-    irrelevantSquares = [BOX, PLAYER]
-
-    for square in irrelevantSquares:
-        warehouseStr = warehouseStr.replace(square, SPACE)
-
     # convert warehouse string into Array<Array<char>>
     warehouseMatrix = string_to_matrix(warehouseStr)
+
+    worker, walls = warehouse.worker, set(warehouse.walls)
 
     # ignore boxes for can_go_there method
     warehouse.boxes = []
 
-    # rule 1: if a cell is a corner and not a target, then it is a taboo cell.
-    for row_index, row in enumerate(warehouseMatrix):
-        for col_index, cell in enumerate(row):
-            if cell is not WALL and cell not in TARGETS:
-                if can_go_there(warehouse, (row_index, col_index)) or (row_index, col_index) == warehouse.worker:
-                    # find corners to set as taboo, breaks when found
-                    if check_if_corner_cell(warehouseMatrix, (row_index, col_index)):
-                        warehouseMatrix[row_index][col_index] = TABOO
+    # iterate through rows and cols
+    for row_index in range(warehouse.nrows):
+        for col_index in range(warehouse.ncols):
+            position = (row_index, col_index)
+            cell = warehouseMatrix[row_index][col_index]
 
-    # rule 2: all the cells between two corners along a wall are taboo if none of these cells is a target.
-    for row_index, row in enumerate(warehouseMatrix):
-        for col_index, cell in enumerate(row):
-            # find a taboo cell and check rows and columns that apply to rule 2
-            if cell is TABOO and check_if_corner_cell(warehouseMatrix, (row_index, col_index)):
-                # from the taboo point get the rest of the row to the right of it and enumerate
-                #row_x
-                for taboo_col_index, test_cell in enumerate(warehouseMatrix[row_index][col_index + 1:]):
-                    # if there's any targets or walls break
-                    if test_cell in TARGETS or test_cell is WALL:
-                        break
+            # remove unneccessary chars
+            if cell is PLAYER or cell is BOX:
+                warehouseMatrix[row_index][col_index] = SPACE
 
-                    # this is the next point in the row, we use x because the rest of the row may be cut off to enumerate
-                    next_taboo_col_index = col_index + (taboo_col_index + 1)
+            # rule 1: if a cell is a corner and not a target, then it is a taboo cell.
+            if cell is not WALL and cell not in TARGETS:    
+                if check_if_corner_cell(walls, position) and (position == worker or can_go_there(warehouse.copy(), position)):
+                    warehouseMatrix[row_index][col_index] = TABOO
+            
+                    # rule 2: all the cells between two corners along a wall are taboo if none of these cells is a target.
+                    # from the taboo point get the rest of the row to the right of it and enumerate
+                    for taboo_col_index in range((col_index + 1), warehouse.ncols):
+                        taboo_cell = warehouseMatrix[row_index][taboo_col_index]
+                        # if there's any targets or walls break
+                        if taboo_cell in TARGETS or taboo_cell is WALL:
+                            break
 
-                    # find another taboo cell or corner
-                    if test_cell is TABOO and check_if_corner_cell(warehouseMatrix, (row_index, next_taboo_col_index)):
-                        # if the entire row is along a wall then the entire row is taboo
-                        if all([check_if_along_wall(warehouseMatrix, (row_index, i)) for i in range(col_index + 1, next_taboo_col_index)]):
-                            # fill with taboo
-                            for taboo_index in range(col_index + 1, next_taboo_col_index):
-                                warehouseMatrix[row_index][taboo_index] = TABOO
+                        taboo_position = (row_index, taboo_col_index)
+                        
+                        # find another taboo cell or corner
+                        if check_if_corner_cell(walls, taboo_position):
+                            # if the entire row is along a wall then the entire row is taboo
+                            rest_of_cells_along_wall = [check_if_along_wall(walls, (row_index, i)) for i in range(col_index + 1, taboo_col_index)]
+                            if all(rest_of_cells_along_wall):
+                                # fill with taboo
+                                for taboo_index in range(col_index + 1, taboo_col_index):
+                                    warehouseMatrix[row_index][taboo_index] = TABOO
 
-                # from the taboo point get the rest of the column below it and enumerate over
-                for taboo_row_index, test_cell in enumerate([row[col_index] for row in warehouseMatrix[row_index + 1:][:]]):
-                    # if there's any targets or walls break
-                    if test_cell in TARGETS or test_cell is WALL:
-                        break
+                    # from the taboo point get the rest of the column below it and enumerate over
+                    for taboo_row_index in range((row_index + 1), warehouse.nrows):
+                        taboo_cell = warehouseMatrix[taboo_row_index][col_index]
+                        # if there's any targets or walls break
+                        if taboo_cell in TARGETS or taboo_cell is WALL:
+                            break
 
-                    # this is the next point in the column, we use x because the rest of the col may be cut off to enumerate
-                    next_taboo_row_index = row_index + (taboo_row_index + 1)
-                    
-                    # find another taboo cell or corner
-                    if test_cell is TABOO and check_if_corner_cell(warehouseMatrix, (next_taboo_row_index, col_index)):
-                        # if the entire column is along a wall then the entire column is taboo
-                        if all([check_if_along_wall(warehouseMatrix, (i, col_index)) for i in range(row_index + 1, next_taboo_row_index)]):
-                            # fill with taboo
-                            for taboo_index in range(row_index + 1, next_taboo_row_index):
-                                warehouseMatrix[taboo_index][col_index] = TABOO
+                        taboo_position = (taboo_row_index, col_index)
+                        
+                        # find another taboo cell or corner
+                        if check_if_corner_cell(walls, taboo_position):
+                            # if the entire column is along a wall then the entire column is taboo
+                            rest_of_cells_along_wall = [check_if_along_wall(walls, (i, col_index)) for i in range(row_index + 1, taboo_row_index)]
+                            if all(rest_of_cells_along_wall):
+                                # fill with taboo
+                                for taboo_index in range(row_index + 1, taboo_row_index):
+                                    warehouseMatrix[taboo_index][col_index] = TABOO
+            
 
     # return to string variable
     warehouseStr = matrix_to_string(warehouseMatrix)
@@ -238,7 +232,7 @@ def taboo_cells(warehouse):
     # remove target chars
     for square in TARGETS:
         warehouseStr = warehouseStr.replace(square, SPACE)
-
+    
     return warehouseStr
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -270,14 +264,13 @@ class SokobanPuzzle(search.Problem):
         """
         initialisation function
         """
-        whStr = warehouse.__str__()
-        self.initial = whStr
+        self.initial = warehouse.__str__()
         self.macro = macro
         self.allow_taboo_push = allow_taboo_push
         # get a list of taboo_cells for usage
         self.taboo_cells = set(sokoban.find_2D_iterator(taboo_cells(warehouse).split(sep='\n'), "X"))
         # remove the player from the goal or target_square and move the boxes to the targets
-        self.goal = whStr.replace(PLAYER, SPACE).replace(PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET).replace(BOX, SPACE).replace(TARGET_SQUARE, BOX_ON_TARGET)
+        self.goal = warehouse.__str__().replace(PLAYER, SPACE).replace(PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET).replace(BOX, SPACE).replace(TARGET_SQUARE, BOX_ON_TARGET)
 
     def actions(self, state):
         """
@@ -290,7 +283,7 @@ class SokobanPuzzle(search.Problem):
         warehouse = sokoban.Warehouse()
         warehouse.from_string(state)
 
-        walls, worker, boxes = warehouse.walls, warehouse.worker, warehouse.boxes
+        walls, boxes = set(warehouse.walls), set(warehouse.boxes)
 
         if self.macro:
             # macro actions
@@ -301,7 +294,7 @@ class SokobanPuzzle(search.Problem):
                     # new position of the box when pushed
                     test_pos = add_action(box, surr)
                     # if we can't go there then it's not a valid move
-                    if can_go_there(warehouse, tuple(reversed(test_pos))) or worker == test_pos:
+                    if can_go_there(warehouse, tuple(reversed(test_pos))) or warehouse.worker == test_pos:
                         # new position of the box when pushed, opposition direction of current surrounding
                         new_box_pos = add_action(box, surr, -1)
                         if new_box_pos not in boxes and new_box_pos not in walls:
@@ -314,12 +307,12 @@ class SokobanPuzzle(search.Problem):
             # enumerate through possible surroundings
             for i, surr in enumerate(SURROUNDINGS):
                 # get the new position of adding the move to the worker
-                test_pos = add_action(worker, surr)
+                test_pos = add_action(warehouse.worker, surr)
                 # test it's not a wall
                 if test_pos not in walls:
                     # if it's within a box position test new position of box
                     if test_pos in boxes:
-                        test_box = add_action(worker, surr, 2)
+                        test_box = add_action(warehouse.worker, surr, 2)
                         # ensure the new box position doesn't merge with a wall, box
                         if test_box not in boxes and test_box not in walls:
                             # if allow taboo push, yield action or if not allowing, test box not in taboo_cells
@@ -328,8 +321,17 @@ class SokobanPuzzle(search.Problem):
                     else:
                         yield ACTIONS[i]
 
-    goal_test = lambda self, state : state.__str__().replace("@", " ") == self.goal
-    goal_test.__doc__ = """goal test to ensure all boxes are in a target_square, player position is irrelevant so remove"""
+    def path_cost(self, c, state1, action, state2):
+        """Return the cost of a solution path that arrives at state2 from
+            state1 via action, assuming cost c to get up to state1. If the problem
+            is such that the path doesn't matter, this function will only look at
+            state2.  If the path does matter, it will consider c and maybe state1
+            and action. The default method costs 1 for every step in the path."""
+        return c + 1
+
+    def goal_test(self, state):
+        """goal test to ensure all boxes are in a target_square, player position is irrelevant so remove"""
+        return state.__str__().replace("@", " ") == self.goal
 
     def result(self, state, action):
         """
@@ -337,7 +339,6 @@ class SokobanPuzzle(search.Problem):
         """
         warehouse = sokoban.Warehouse()
         warehouse.from_string(state)
-        worker, boxes = warehouse.worker, warehouse.boxes
 
         if self.macro:
             # convert action ie 'Left' into tuple (-1, 0)
@@ -348,18 +349,18 @@ class SokobanPuzzle(search.Problem):
             # convert action ie 'Left' into tuple (-1, 0)
             next_pos = SURROUNDINGS[ACTIONS.index(action)]
             # get the new worker position
-            new_worker = add_action(worker, next_pos)
+            new_worker = add_action(warehouse.worker, next_pos)
 
         # copy the state and move the worker to the next position
         # for any box in the position of the new worker position,
         # push it twice the current position of the worker to allow the worker to move forward
-        # if the box isn't in the resultant position return the same position of the box    
+        # if the box isn't in the resultant position return the same position of the box   
         return warehouse.copy(
             worker = new_worker, 
             boxes = [add_action(box_pos, next_pos) 
                     if box_pos == new_worker
                     else box_pos 
-                    for box_pos in boxes]).__str__()
+                    for box_pos in warehouse.boxes]).__str__()
 
     def h(self, n):
         """
@@ -369,15 +370,13 @@ class SokobanPuzzle(search.Problem):
         warehouse = sokoban.Warehouse()
         warehouse.from_string(n.state)
 
-        worker, boxes, targets = warehouse.worker, warehouse.boxes, warehouse.targets
-
         if self.macro:
             box_to_target_totals = list()
             # iterate through each perm of targets to find the distance between each box
-            for targets_perm in itertools.permutations(targets):
+            for targets_perm in itertools.permutations(warehouse.targets):
                 total_distance = 0
                 # combines targets and boxes in tuples as in (target, box) 
-                zipped_tuples = zip(targets_perm, boxes)
+                zipped_tuples = zip(targets_perm, warehouse.boxes)
                 # for each target and box get the manhattan distance for each and add that to a total 
                 # so we have the total distance of all boxes to targets in this permuation
                 for target, box in zipped_tuples:
@@ -390,14 +389,14 @@ class SokobanPuzzle(search.Problem):
             worker_to_box_distances, box_to_target_totals = list(), list()
             
             # iterate through boxes to find the distance for each from worker
-            for box in boxes:
-                worker_to_box_distances.append(manhattan_distance(worker, box))
+            for box in warehouse.boxes:
+                worker_to_box_distances.append(manhattan_distance(warehouse.worker, box))
 
             # iterate through each perm of targets to find the distance between each box
-            for targets_perm in itertools.permutations(targets):
+            for targets_perm in itertools.permutations(warehouse.targets):
                 total_distance = 0
                 # combines targets and boxes in tuples as in (target, box) 
-                zipped_tuples = zip(targets_perm, boxes)
+                zipped_tuples = zip(targets_perm, warehouse.boxes)
                 # for each target and box get the manhattan distance for each and add that to a total 
                 # so we have the total distance of all boxes to targets in this permuation
                 for target, box in zipped_tuples:
@@ -405,6 +404,7 @@ class SokobanPuzzle(search.Problem):
                 box_to_target_totals.append(total_distance)
 
             # return the smallest worker to box distance and smallest box to target total distance
+
             return min(worker_to_box_distances) + min(box_to_target_totals)
 
 
@@ -442,7 +442,7 @@ def check_elem_action_seq(warehouse, action_seq):
     for action in action_seq:
 
         # get the original location of walls and boxes
-        walls, boxes = warehouse.walls, warehouse.boxes
+        walls, boxes = set(warehouse.walls), warehouse.boxes
 
         # employs the actions and returns the resultant string
         # we can use the result() to get the acted up result of each action
@@ -451,10 +451,9 @@ def check_elem_action_seq(warehouse, action_seq):
         # get the worker from the new result
         worker = warehouse.worker
 
-        # iterates over walls and ensures the worker hasn't clipped a wall
-        for wall in walls:
-            if worker == wall:
-                return Failed
+        # ensures the worker hasn't clipped a wall
+        if worker in walls:
+            return Failed
 
         # helper to ensure boxes aren't stacked
         box_stack = set()
@@ -467,10 +466,9 @@ def check_elem_action_seq(warehouse, action_seq):
             # adds the box to set for next box test
             else:
                 box_stack.add(box)
-            # iterates over walls and ensures no boxes have clipped any walls
-            for wall in walls:
-                if box == wall:
-                    return Failed
+            # ensures no boxes have clipped any walls
+            if box in walls:
+                return Failed
 
     return warehouse.__str__()
 
@@ -518,14 +516,13 @@ def can_go_there(warehouse, dst):
     (row, col) = dst
 
     # the player is only able to move to a space and a target square
-    ALLOWED_CELLS = [SPACE, TARGET_SQUARE] 
+    ALLOWED_CELLS = set([SPACE, TARGET_SQUARE]) 
 
     # convert the warehouse to a Array<Array<char>>
     warehouseMatrix = string_to_matrix(warehouse.__str__())
 
     # check if the worker is allowed onto the given coordinates before checking if a valid path exists
-    cell = warehouseMatrix[row][col]
-    if cell not in ALLOWED_CELLS:
+    if warehouseMatrix[row][col] not in ALLOWED_CELLS:
         return False
 
     # check if a valid path from the worker to the coordinate provided exists
