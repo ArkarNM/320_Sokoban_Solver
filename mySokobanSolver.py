@@ -272,7 +272,7 @@ class SokobanPuzzle(search.Problem):
     return elementary actions.        
     '''
     
-    def __init__(self, warehouse, macro=False, allow_taboo_push=False, push_costs=1):
+    def __init__(self, warehouse, macro=False, allow_taboo_push=False, push_costs=0):
         """
         initialisation function
         """
