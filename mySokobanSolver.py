@@ -63,7 +63,9 @@ def add_action(state, action, scale=1):
     return state[0] + (scale * action[0]), state[1] + (scale * action[1])
 
 def check_if_corner_cell(walls, dst):
-    """checks the warehouse and determines if the cell is surrounded by a corner"""
+    """
+    checks the warehouse and determines if the cell is surrounded by a corner
+    """
     for i in range(len(SURROUNDINGS)):
         (a_x, a_y) = SURROUNDINGS[i]
         (b_x, b_y) = SURROUNDINGS[(i+1) % 4]
@@ -74,7 +76,9 @@ def check_if_corner_cell(walls, dst):
     return False
 
 def check_if_along_wall(walls, dst):
-    """checks the warehouse and determines if the cell is along a wall"""
+    """
+    checks the warehouse and determines if the cell is along a wall
+    """
     (row, col) = dst
     for (a_x, a_y) in SURROUNDINGS:
         # if next to wall then return True
@@ -83,11 +87,15 @@ def check_if_along_wall(walls, dst):
     return False
 
 def matrix_to_string(warehouseM):
-    """converts a 2D array of chars to a string"""
+    """
+    converts a 2D array of chars to a string
+    """
     return NEW_LINE.join([EMPTY_STRING.join(row) for row in warehouseM])
 
 def string_to_matrix(warehouseS):
-    """converts a string to a 2D array of chars"""
+    """
+    converts a string to a 2D array of chars
+    """
     return [list(line) for line in warehouseS.split(NEW_LINE)]
 
 def manhattan_distance(init, end):
@@ -264,13 +272,14 @@ class SokobanPuzzle(search.Problem):
     return elementary actions.        
     '''
     
-    def __init__(self, warehouse, macro=False, allow_taboo_push=False):
+    def __init__(self, warehouse, macro=False, allow_taboo_push=False, push_costs=1):
         """
         initialisation function
         """
         self.initial = warehouse.__str__()
         self.macro = macro
         self.allow_taboo_push = allow_taboo_push
+        self.push_costs = push_costs
         # get a list of taboo_cells for usage
         self.taboo_cells = set(sokoban.find_2D_iterator(taboo_cells(warehouse).split(sep='\n'), "X"))
         # remove the player from the goal or target_square and move the boxes to the targets
@@ -408,7 +417,6 @@ class SokobanPuzzle(search.Problem):
                 box_to_target_totals.append(total_distance)
 
             # return the smallest worker to box distance and smallest box to target total distance
-
             return min(worker_to_box_distances) + min(box_to_target_totals)
 
 
@@ -551,7 +559,7 @@ def solve_sokoban_macro(warehouse):
         If the puzzle is already in a goal state, simply return []
     '''
 
-    path = search.astar_graph_search(SokobanPuzzle(warehouse, True))
+    path = search.astar_graph_search(SokobanPuzzle(warehouse, macro=True))
 
     if path is not None:
         return path.solution()
@@ -587,7 +595,12 @@ def solve_weighted_sokoban_elem(warehouse, push_costs):
             If the puzzle is already in a goal state, simply return []
     '''
     
-    raise NotImplementedError()
+    path = search.astar_graph_search(SokobanPuzzle(warehouse, push_costs=push_costs))
+
+    if path is not None:
+        return path.solution()
+    else: 
+        return FAILED
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

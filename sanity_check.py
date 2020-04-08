@@ -175,4 +175,4 @@ if __name__ == "__main__":
     test_solve_sokoban_elem()
     test_can_go_there()
     test_solve_sokoban_macro()   
-#    test_solve_weighted_sokoban_elem()
+    test_solve_weighted_sokoban_elem()
