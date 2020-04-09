@@ -92,11 +92,11 @@ def matrix_to_string(warehouseM):
     """
     return NEW_LINE.join([EMPTY_STRING.join(row) for row in warehouseM])
 
-def string_to_matrix(warehouseS):
+def warehouse_to_matrix(warehouse):
     """
     converts a string to a 2D array of chars
     """
-    return [list(line) for line in warehouseS.split(NEW_LINE)]
+    return [list(line) for line in warehouse.__str__().split(NEW_LINE)]
 
 def manhattan_distance(init, end):
         """
@@ -174,11 +174,8 @@ def taboo_cells(warehouse):
        and the boxes.  
     '''
 
-    # get string
-    warehouseStr = warehouse.__str__()
-
-    # convert warehouse string into Array<Array<char>>
-    warehouseMatrix = string_to_matrix(warehouseStr)
+    # convert warehouse into Array<Array<char>>
+    warehouseMatrix = warehouse_to_matrix(warehouse)
 
     worker, walls = warehouse.worker, set(warehouse.walls)
 
@@ -523,7 +520,7 @@ def can_go_there(warehouse, dst):
     ALLOWED_CELLS = set([SPACE, TARGET_SQUARE]) 
 
     # convert the warehouse to a Array<Array<char>>
-    warehouseMatrix = string_to_matrix(warehouse.__str__())
+    warehouseMatrix = warehouse_to_matrix(warehouse)
 
     # check if the worker is allowed onto the given coordinates before checking if a valid path exists
     if warehouseMatrix[row][col] not in ALLOWED_CELLS:
