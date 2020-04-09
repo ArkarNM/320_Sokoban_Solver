@@ -110,8 +110,8 @@ def manhattan_distance(init, end):
 
 class PathProblem(search.Problem):
     # initialises the problem
-    def __init__(self, initial, warehouse, goal):
-        self.initial = initial
+    def __init__(self, warehouse, goal):
+        self.initial = warehouse.worker
         self.boxes = set(warehouse.boxes)
         self.walls = set(warehouse.walls)
         self.goal = goal
@@ -376,6 +376,7 @@ class SokobanPuzzle(search.Problem):
         """
         heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
         """
+
         # initialise new warehouse to work on and get new tuples
         warehouse = sokoban.Warehouse()
         warehouse.from_string(n.state)
@@ -527,7 +528,7 @@ def can_go_there(warehouse, dst):
         return False
 
     # check if a valid path from the worker to the coordinate provided exists
-    path = search.astar_graph_search(PathProblem(warehouse.worker, warehouse, (col, row)))
+    path = search.astar_graph_search(PathProblem(warehouse, (col, row)))
 
     return path is not None
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
