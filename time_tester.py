@@ -21,14 +21,15 @@ def test_macro(n):
     wh = Warehouse()
     wh.load_warehouse(problem_file)
     time1 = time.time()
-    solve_sokoban_macro(wh)
+    a = solve_sokoban_macro(wh)
+    print(a)
     print('{:06.3f}s'.format(time.time() - time1))
 
 if __name__ == "__main__":
 
     print("ELEMENTARY TESTS")
     # test_elem("07")
-    test_elem("09")
+    #test_elem("09")
     # test_elem("11")
     # test_elem("47")
     # test_elem("81")
@@ -37,7 +38,7 @@ if __name__ == "__main__":
     print("MACRO TESTS")
     # test_macro("07")
     # test_macro("09")
-    # test_macro("11")
+    test_macro("11")
     # test_macro("47")
     # test_macro("81")
     # test_macro("147")

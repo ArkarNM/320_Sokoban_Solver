@@ -277,7 +277,6 @@ class SokobanPuzzle(search.Problem):
         self.macro = macro
         self.allow_taboo_push = allow_taboo_push
         self.push_costs = push_costs
-        self.boxes = warehouse.boxes
         # get a list of taboo_cells for usage
         self.taboo_cells = set(sokoban.find_2D_iterator(taboo_cells(warehouse).split(sep='\n'), "X"))
         # remove the player from the goal or target_square and move the boxes to the targets
@@ -338,9 +337,12 @@ class SokobanPuzzle(search.Problem):
             is such that the path doesn't matter, this function will only look at
             state2.  If the path does matter, it will consider c and maybe state1
             and action. The default method costs 1 for every step in the path."""
-        print(state1)
-        print(c, action)
-        print(state2)
+        print("-------------- PATH_COST START -----------------")
+        push_cost = 0
+        print("Acting Upon:", action)
+        print("From:\n", state1)
+        print("To\n", state2)
+
         if self.push_costs is not None:
             warehouse = sokoban.Warehouse()
             warehouse.from_string(state1)
@@ -348,28 +350,29 @@ class SokobanPuzzle(search.Problem):
             new_warehouse = sokoban.Warehouse()
             new_warehouse.from_string(state2)
 
-            old_boxes, new_boxes = set(warehouse.boxes), new_warehouse.boxes
-
-            print(self.boxes, self.push_costs)
-
+            # get the old and the new boxes
+            old_boxes, new_boxes = set(warehouse.boxes), set(new_warehouse.boxes)
+            print("Boxes before and after:", old_boxes, new_boxes)
+            # if the boxes aren't the same then a box has been pushed
             if old_boxes != new_boxes:
+                # order the push costs by the old boxes order
                 push_costs_sorted = [x for _, x in sorted(zip(old_boxes, self.push_costs), key=lambda pair: (pair[0][0] * warehouse.ncols) + (pair[0][1] * warehouse.nrows))]
+                print("Push Cost of Warehouse Above^ Before And After", self.push_costs, push_costs_sorted)
+                print("For Sanity Check left box should have cost 1, right box 9")
 
-                new_boxes.sort(key=lambda tup: (tup[0] * warehouse.ncols) + (tup[1] * warehouse.nrows))
-
-                print(self.push_costs, push_costs_sorted)
-                print(old_boxes, new_boxes)
-
+                # go through the old boxes to find the box not there
                 for old_box_index, old_box in enumerate(old_boxes):
                     if old_box not in new_boxes:
-                        for new_box in new_boxes:
-                            if new_box == add_action(old_box, SURROUNDINGS[ACTIONS.index(action)]):
-                                self.boxes[old_box_index] = new_box
-                                print("Returned c + self.push_costs : ", push_costs_sorted[old_box_index])
-                                return c + push_costs_sorted[old_box_index]
+                        # go through to find the index of the old box to apply it's push_cost
+                        push_cost = push_costs_sorted[old_box_index]
 
-        print("Returned c + 1")
-        return c + 1
+        if isinstance(action, list):
+                return c + len(action) + push_cost
+        
+        print("cost = ", "c", c, "+", 1, "+", push_cost, "=", c+1+push_cost)
+        print("-------------- PATH_COST END -----------------")
+        print('')
+        return c + 1 + push_cost
 
     def goal_test(self, state):
         """goal test to ensure all boxes are in a target_square, player position is irrelevant so remove"""
@@ -396,13 +399,22 @@ class SokobanPuzzle(search.Problem):
         # copy the state and move the worker to the next position
         # for any box in the position of the new worker position,
         # push it twice the current position of the worker to allow the worker to move forward
-        # if the box isn't in the resultant position return the same position of the box   
-        return warehouse.copy(
+        # if the box isn't in the resultant position return the same position of the box
+        
+        print("-------------- RESULT START -----------------")
+        print(warehouse)
+
+        new_warehouse = warehouse.copy(
             worker = new_worker, 
             boxes = [add_action(box_pos, next_pos) 
                     if box_pos == new_worker
                     else box_pos 
-                    for box_pos in warehouse.boxes]).__str__()
+                    for box_pos in warehouse.boxes])
+
+        print(new_warehouse)
+        print("-------------- RESULT END -----------------")
+        print("")
+        return new_warehouse.__str__()
 
     def h(self, n):
         """
@@ -445,7 +457,7 @@ class SokobanPuzzle(search.Problem):
                 for target, box in zipped_tuples:
                     total_distance += manhattan_distance(target, box)
                 box_to_target_totals.append(total_distance)
-            # print(min(worker_to_box_distances) + min(box_to_target_totals))
+
             # return the smallest worker to box distance and smallest box to target total distance
             return min(worker_to_box_distances) + min(box_to_target_totals)
 
