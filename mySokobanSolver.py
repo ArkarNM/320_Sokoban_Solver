@@ -277,6 +277,7 @@ class SokobanPuzzle(search.Problem):
         self.macro = macro
         self.allow_taboo_push = allow_taboo_push
         self.push_costs = push_costs
+        self.push_costs_box_indexes = [i for i, _ in enumerate(push_costs)]
         # get a list of taboo_cells for usage
         self.taboo_cells = set(sokoban.find_2D_iterator(taboo_cells(warehouse).split(sep='\n'), "X"))
         # remove the player from the goal or target_square and move the boxes to the targets
@@ -401,9 +402,6 @@ class SokobanPuzzle(search.Problem):
         # push it twice the current position of the worker to allow the worker to move forward
         # if the box isn't in the resultant position return the same position of the box
         
-        print("-------------- RESULT START -----------------")
-        print(warehouse)
-
         new_warehouse = warehouse.copy(
             worker = new_worker, 
             boxes = [add_action(box_pos, next_pos) 
@@ -411,9 +409,6 @@ class SokobanPuzzle(search.Problem):
                     else box_pos 
                     for box_pos in warehouse.boxes])
 
-        print(new_warehouse)
-        print("-------------- RESULT END -----------------")
-        print("")
         return new_warehouse.__str__()
 
     def h(self, n):
@@ -424,6 +419,12 @@ class SokobanPuzzle(search.Problem):
         # initialise new warehouse to work on and get new tuples
         warehouse = sokoban.Warehouse()
         warehouse.from_string(n.state)
+        
+        push_costs_sorted = None
+
+        if self.push_costs is not None:
+            push_costs_sorted = [x for _, x in sorted(zip(warehouse.boxes, self.push_costs), key=lambda pair: (pair[0][0] * warehouse.ncols) + (pair[0][1] * warehouse.nrows))]
+            print("Push Cost of Warehouse Above^ Before And After", self.push_costs, push_costs_sorted)
 
         if self.macro:
             box_to_target_totals = list()
@@ -435,7 +436,8 @@ class SokobanPuzzle(search.Problem):
                 # for each target and box get the manhattan distance for each and add that to a total 
                 # so we have the total distance of all boxes to targets in this permuation
                 for target, box in zipped_tuples:
-                    total_distance += manhattan_distance(target, box)
+                    distance = manhattan_distance(target, box)
+                    total_distance += (distance)
                 box_to_target_totals.append(total_distance)
 
             # return the smallest worker to box distance and smallest box to target total distance
@@ -455,9 +457,11 @@ class SokobanPuzzle(search.Problem):
                 # for each target and box get the manhattan distance for each and add that to a total 
                 # so we have the total distance of all boxes to targets in this permuation
                 for target, box in zipped_tuples:
-                    total_distance += manhattan_distance(target, box)
+                    distance = manhattan_distance(target, box)
+                    print("TARGET:", target, "//", "BOX:", box, "//", "DISTANCE", distance)
+                    total_distance += (distance)
+                print("TOTAL DISTANCE", total_distance)
                 box_to_target_totals.append(total_distance)
-
             # return the smallest worker to box distance and smallest box to target total distance
             return min(worker_to_box_distances) + min(box_to_target_totals)
 
