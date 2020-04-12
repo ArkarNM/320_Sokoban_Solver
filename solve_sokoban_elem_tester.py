@@ -43,6 +43,7 @@ def test_expected(n, expected):
     # removes unneccessary \n
     wh.from_lines(n.split(sep='\n'))
     answer = solve_sokoban_elem(wh)
+    print(answer)
     if answer == expected:
         print('Test Passed')
     else:
@@ -50,7 +51,7 @@ def test_expected(n, expected):
 
 if __name__ == "__main__":
 
-    test_expected(t1_test, t1_expected)
+    # test_expected(t1_test, t1_expected)
 
     print('Test a Custom Puzzle')
     print("enter 'quit' to exit\n")

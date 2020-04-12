@@ -86,7 +86,7 @@ def test_solve_sokoban_elem():
     # second test
     puzzle_t2 ='#######\n#@ $ #.#\n#######'
     wh = Warehouse()
-    wh.from_string(puzzle_t2)    
+    wh.from_string(puzzle_t2)
     # second test
     answer = solve_sokoban_elem(wh)
     expected_answer = 'Impossible'
@@ -163,16 +163,14 @@ def test_solve_weighted_sokoban_elem():
         print('But, received ');print(answer)
         print('Your answer is different but it might still be correct')
         print('Check that you pushed the right box onto the left target!')
-        
-    
 
 if __name__ == "__main__":
     pass    
     print(my_team())  # should print your team
 
-    # test_taboo_cells() 
-    # test_check_elem_action_seq()
-    # test_solve_sokoban_elem()
-    # test_can_go_there()
-    # test_solve_sokoban_macro()   
+    test_taboo_cells()
+    test_check_elem_action_seq()
+    test_solve_sokoban_elem()
+    test_can_go_there()
+    test_solve_sokoban_macro()
     test_solve_weighted_sokoban_elem()
