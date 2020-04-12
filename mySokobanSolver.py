@@ -23,11 +23,10 @@ This is not negotiable!
 import search
 import sokoban
 import itertools
-import math
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-## Global Variables ##
+# -- Global Variables -- #
 
 # sokoban squares
 SPACE = ' '
@@ -44,7 +43,7 @@ EMPTY_STRING = ''
 # different types of target squares
 TARGETS = [TARGET_SQUARE, PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET]
 
-# helper for corners (x, y)
+# helper for corners, stored in (x, y)
 SURROUNDINGS = [(0, -1), (-1, 0), (0, 1), (1, 0)]
 ACTIONS = ['Up', 'Left', 'Down', 'Right']
 
@@ -54,7 +53,7 @@ FAILED = 'Impossible'
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-## Helper Functions ##
+# -- Helper Functions -- ##
 
 def add_action(state, action, scale=1):
     """
@@ -108,36 +107,6 @@ def manhattan_distance(init, end):
     manhattan distance |x2 - x1| + |y2 - y1|
     """
     return abs(end[0] - init[0]) + abs(end[1] - init[1])
-    # return math.sqrt((end[0] - init[0])**2 + (end[1] - init[1])**2)
-
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-## Helper Classes ##
-
-class PathProblem(search.Problem):
-    # initialises the problem
-    def __init__(self, warehouse, goal):
-        self.initial = warehouse.worker
-        self.boxes = set(warehouse.boxes)
-        self.walls = set(warehouse.walls)
-        self.goal = goal
-
-    # list of possible actions
-    def actions(self, state):
-        for action in SURROUNDINGS:
-            new_state = add_action(state, action)
-            # check that the action doesn't result in a wall or box collision
-            if new_state not in self.boxes and new_state not in self.walls:
-                yield action
-
-    # Return the old state, with the action applied.
-    def result(self, state, action):
-        return add_action(state, action)
-
-    def h(self, n):
-        """heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|"""
-        return manhattan_distance(self.goal, n.state)
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -147,7 +116,7 @@ def my_team():
     Return the list of the team members of this assignment submission as a list
     of triplet of the form (student_number, first_name, last_name)
     """
-    return [(10212361, 'Jamie', 'Martin'), (9737197, 'Tolga', 'Pasin'), (000000, 'xxxx', 'xxxx')]
+    return [(10212361, 'Jamie', 'Martin'), (9737197, 'Tolga', 'Pasin')]
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -174,7 +143,7 @@ def taboo_cells(warehouse):
        and the boxes.
     """
 
-    # convert warehouse into Array<Array<char>>
+    # convert warehouse into 2D array of characters
     warehouse_matrix = warehouse_to_matrix(warehouse)
 
     worker, walls = warehouse.worker, set(warehouse.walls)
@@ -194,6 +163,9 @@ def taboo_cells(warehouse):
 
             # rule 1: if a cell is a corner and not a target, then it is a taboo cell.
             if cell is not WALL and cell not in TARGETS:
+                # if the position is a corner cell and is either where the worker is
+                # or it can go there (we don't care about stuff outside of the playing field)
+                # then set the character to a taboo cell
                 if check_if_corner_cell(walls, position) and (
                         position == worker or can_go_there(warehouse.copy(), position)):
                     warehouse_matrix[row_index][col_index] = TABOO
@@ -276,190 +248,177 @@ class SokobanPuzzle(search.Problem):
     def __init__(self, warehouse, macro=False, allow_taboo_push=False, push_costs=None):
         """
         initialisation function
-        """
-        if push_costs is not None:
-            self.initial = str(tuple((warehouse.worker, list(zip(warehouse.boxes, push_costs)))))
-        else:
-            self.initial = str(tuple((warehouse.worker, [(box, 0) for box in warehouse.boxes])))
 
+        stores the state as a (worker, str([(box, cost),...]) tuple.
+
+        it's necessary to use the string as the search.py uses a hashset and lists aren't hashable
+        """
+        self.initial = (warehouse.worker, str(list(zip(warehouse.boxes, push_costs)))) \
+            if push_costs is not None \
+            else (warehouse.worker, str([(box, 0) for box in warehouse.boxes]))
+
+        # custom variable inputs
+        self.push_costs = push_costs
         self.macro = macro
         self.allow_taboo_push = allow_taboo_push
-        # get a list of taboo_cells for usage
-        self.taboo_cells = set(sokoban.find_2D_iterator(taboo_cells(warehouse).split(sep='\n'), "X"))
-        # remove the player from the goal or target_square and move the boxes to the targets
-        self.walls = set(warehouse.walls)
-        self.goal = warehouse.targets
 
-        # for #ing/debug purposes
+        # helpers
+        self.taboo_cells = set(sokoban.find_2D_iterator(taboo_cells(warehouse).split(sep='\n'), "X"))
+        self.walls = set(warehouse.walls)
+        self.goal = set(warehouse.targets)
+
+        # for macro actions can_go_there purposes
         self.warehouse = warehouse
 
     def actions(self, state):
         """
         Return the list of actions that can be executed in the given state.
-        
-        As specified in the header comment of this class, the attributes
-        'self.allow_taboo_push' and 'self.macro' should be tested to determine
-        what type of list of actions is to be returned.
         """
-        state = eval(state)
+        (worker, boxes) = state
+        boxes = [box for (box, _) in eval(boxes)]
 
-        boxes = [box for (box, cost) in state[1]]
-        worker = state[0]
-
-        #(self.warehouse.copy(worker=worker, boxes=boxes))
-
+        # macro actions
         if self.macro:
-            # macro actions
             # go through boxes and determine what worker can do to them
             for box in boxes:
-                # enumerate through possible surroundings
+                # enumerate through possible surroundings of each box
                 for i, surr in enumerate(SURROUNDINGS):
-                    # new position of the box when pushed
+                    # test the possible surroundings for the worker to move to
                     test_pos = add_action(box, surr)
-                    # if we can't go there then it's not a valid move
-                    warehouse = self.warehouse.copy(worker=worker, boxes=boxes)
-                    if can_go_there(warehouse.copy(), tuple(reversed(test_pos))) or worker == test_pos:
+                    # if the worker can't go there then it's not a valid move
+                    if worker == test_pos or \
+                            can_go_there(self.warehouse.copy(worker=worker, boxes=boxes), tuple(reversed(test_pos))):
                         # new position of the box when pushed, opposition direction of current surrounding
                         new_box_pos = add_action(box, surr, -1)
-                        if new_box_pos not in boxes and new_box_pos not in self.walls:
-                            # if allow taboo push, yield action or if test box not in taboo_cells
-                            if self.allow_taboo_push or new_box_pos not in self.taboo_cells:
-                                # get the opposite of the current action as in worker goes 'Left' but pushes box 'Right'
-                                yield tuple(reversed(box)), ACTIONS[(i + 2) % 4]
+
+                        # ensure the new box position doesn't merge with a wall, box and
+                        # that allow taboo push is true or the test box not in taboo_cells
+                        if new_box_pos not in boxes and new_box_pos not in self.walls \
+                                and (self.allow_taboo_push or new_box_pos not in self.taboo_cells):
+                            # get the opposite of the surrounding as in,
+                            # worker goes to the 'Left' and pushes the box 'Right'
+                            yield tuple(reversed(box)), ACTIONS[(i + 2) % 4]
+        # elementary actions
         else:
-            # elementary actions
-            # enumerate through possible surroundings
+            # enumerate through possible surroundings of the worker
             for i, surr in enumerate(SURROUNDINGS):
-                # get the new position of adding the move to the worker
+                # add the surrounding to the workers current position to test if it's viable
                 test_pos = add_action(worker, surr)
-                # test it's not a wall
+
+                # ensure it's not in a wall
                 if test_pos not in self.walls:
-                    # if it's within a box position test new position of box
-                    if test_pos in boxes:
-                        test_box = add_action(test_pos, surr)
-                        # ensure the new box position doesn't merge with a wall, box
-                        if test_box not in boxes and test_box not in self.walls:
-                            # if allow taboo push, yield action or if not allowing, test box not in taboo_cells
-                            if self.allow_taboo_push or test_box not in self.taboo_cells:
-                                yield ACTIONS[i]
-                    else:
+                    # if it's not in a box then the worker can move their
+                    if test_pos not in boxes:
                         yield ACTIONS[i]
 
+                    # if it's within a box test new position of the box
+                    else:
+                        # this is the position 2 spaces from the current worker
+                        test_pos = add_action(test_pos, surr)
+                        # ensure the new box position doesn't merge with a wall, box and
+                        # that allow taboo push is true or the test box not in taboo_cells
+                        if test_pos not in boxes and test_pos not in self.walls \
+                                and (self.allow_taboo_push or test_pos not in self.taboo_cells):
+                            yield ACTIONS[i]
 
     def path_cost(self, c, state1, action, state2):
-        """Return the cost of a solution path that arrives at state2 from
-            state1 via action, assuming cost c to get up to state1. If the problem
-            is such that the path doesn't matter, this function will only look at
-            state2.  If the path does matter, it will consider c and maybe state1
-            and action. The default method costs 1 for every step in the path."""
+        """
+        Return the cost of the solution path that arrives at state2 from state1 via action
+        """
         push_cost = 0
 
-        state1 = eval(state1)
-        state2 = eval(state2)
+        # determines if we need to worry about push_costs
+        if self.push_costs is not None:
+            # copy the two states into workable variables
+            (old_worker, old_boxes), (new_worker, new_boxes) = state1, state2
+            # set comparison is unordered + we shouldn't have a case of box_stack up as this has already been checked
+            old_boxes, new_boxes = set(eval(old_boxes)), set(eval(new_boxes))
 
-        old_boxes, new_boxes = state1[1], state2[1]
-        old_worker, new_worker = state1[0], state2[0]
+            # if the two are different try find the box that moved
+            if new_boxes != old_boxes:
+                for box_index, (box, cost) in enumerate(new_boxes):
+                    # assign push_cost the cost of the box movement
+                    if (box, cost) not in old_boxes:
+                        push_cost = cost
 
-        # checking we don't move more spaces than possible
-        if not self.macro:
-            assert(manhattan_distance(old_worker, new_worker) == 1)
-
-        if new_boxes != old_boxes:
-            # go through the old boxes to find the box not there
-            for box_index, (box, cost) in enumerate(new_boxes):
-                if (box, cost) not in old_boxes:
-                    # go through to find the index of the old box to apply it's push_cost
-                    push_cost = cost
-
+        # returns the current cost + 1 for an action + the push cost
         return c + 1 + push_cost
 
     def goal_test(self, state):
-        """goal test to ensure all boxes are in a target_square, player position is irrelevant so remove"""
-        state = eval(state)
-        return [box for (box, cost) in state[1]] == self.goal
+        """
+        goal test to ensure all boxes are in a target_square
+        """
+        (_, boxes) = state
+        return set([box for (box, _) in eval(boxes)]) == self.goal
 
     def result(self, state, action):
         """
         action upon the given action and return the new state
         """
-        (worker, boxes) = eval(state)
+        # copy the state into workable variables
+        (worker, boxes) = state
+        boxes = eval(boxes)
 
+        # macro result
         if self.macro:
             # convert action ie 'Left' into tuple (-1, 0)
             next_pos = SURROUNDINGS[ACTIONS.index(action[1])]
-            # get the new worker position, flip the action because it's row, col (y, x) not x, y
+            # assigns the worker their new position
+            # flip the action because it's in row, col (y, x) not x, y
             worker = tuple(reversed(action[0]))
+        # elementary result
         else:
             # convert action ie 'Left' into tuple (-1, 0)
             next_pos = SURROUNDINGS[ACTIONS.index(action)]
-            # get the new worker position
+            # assigns the worker their new position
             worker = add_action(worker, next_pos)
 
+        # update the box if one is pushed
         for i, (box, cost) in enumerate(boxes):
             if worker == box:
-                new_box_pos = add_action(box, next_pos)
-                assert(manhattan_distance(box, new_box_pos) == 1)
-                boxes[i] = (new_box_pos, cost)
+                boxes[i] = (add_action(box, next_pos), cost)
 
-        return str(tuple((worker, boxes)))
+        return worker, str(boxes)
 
     def h(self, n):
         """
-        heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
+        heuristic using that defines the closest box to the worker
+        and also the closest box to target combination,
+        incoporating push_costs if necessary
         """
-        state = eval(n.state)
-        # initialise new warehouse to work on and get new tuples
-        boxes = state[1]
-        worker = state[0]
+        # copy the state into workable variables
+        (worker, boxes) = n.state
+        boxes = eval(boxes)
 
-        worker_to_box_distances, box_to_target_totals = list(), list()
+        # initialise the list of distances
+        # we don't care about double ups we just want the smallest possible answer
+        worker_to_box_distances, box_to_target_totals = set(), set()
 
-        # iterate through boxes to find the distance for each from worker
+        # iterate through boxes and append the distance for each from worker
         for (box, _) in boxes:
-            distance = manhattan_distance(worker, box)
-            worker_to_box_distances.append(distance)
-        # iterate through each perm of targets to find the distance between each box
+            worker_to_box_distances.add(manhattan_distance(worker, box))
+
+        # iterate through each permutation of targets to find the distance between each box
         for targets_perm in itertools.permutations(self.goal):
             total_distance = 0
+
             # combines targets and boxes in tuples as in (target, box)
             zipped_tuples = zip(targets_perm, boxes)
-            # for each target and box get the manhattan distance for each and add that to a total
-            # so we have the total distance of all boxes to targets in this permuation
+
+            # for each target and box get the manhattan distance for each
             for target, (box, cost) in zipped_tuples:
-                distance = manhattan_distance(target, box)
-                if cost != 0:
-                    total_distance += (distance * cost)
-                else:
-                    total_distance += distance
-            box_to_target_totals.append(total_distance)
+                # cost is incorporated to ensure the worker understands
+                # the effort required to push this box.
+                # if it's 0 make it 1 because it still costs the worker to move there
+                cost = cost if cost > 0 else 1
+                # append the total distance of all boxes to targets in this permutation
+                total_distance += manhattan_distance(target, box) * cost
+
+            # add the total so we have
+            box_to_target_totals.add(total_distance)
+
         # return the smallest worker to box distance and smallest box to target total distance
-        return min(worker_to_box_distances) + 10 * min(box_to_target_totals)
-    # def h(self, n):
-    #     # Perform a manhattan distance heuristic
-    #     state = eval(n.state)
-    #     # initialise new warehouse to work on and get new tuples
-    #     boxes = state[1]
-    #     worker = state[0]
-    #
-    #     num_targets = len(self.goal)
-    #     heuristic = 0
-    #     test = 1
-    #     for (box, cost) in boxes:
-    #         # dist = 0
-    #         # for target in wh.targets:
-    #         #     dist+= manhattan_distance(box, target)
-    #         # heuristic += (dist/num_targets)
-    #         if test == 1:
-    #             dist = 0
-    #             for target in self.goal:
-    #                 dist += manhattan_distance(box, target)
-    #             heuristic += 0.8 * (dist / num_targets) + 0.5 * manhattan_distance(worker, box)
-    #         else:
-    #             dist1 = []
-    #             for target in self.goal:
-    #                 dist1.append(manhattan_distance(box, target))
-    #             heuristic += 0.8 * min(dist1) + 0.5 * manhattan_distance(worker, box)
-    #     return heuristic
+        return min(worker_to_box_distances) + min(box_to_target_totals)
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -490,37 +449,30 @@ def check_elem_action_seq(warehouse, action_seq):
     # copies warehouse into a new Sokoban puzzle
     puzzle = SokobanPuzzle(warehouse.copy())
 
-    walls = set(warehouse.walls)
-
-    boxes = warehouse.boxes
-    worker = warehouse.worker
+    # initialises the walls, boxes and worker for use in the action sequence
+    boxes, worker = warehouse.boxes, warehouse.worker
 
     # iterates over the actions
     for action in action_seq:
-        # we can use the result() to get the acted upon result of each action
-        state = puzzle.result(str(tuple((worker, [(box, 0) for box in boxes]))), action)
-
-        state = eval(state)
-
-        worker = state[0]
-
-        boxes = [box for (box, cost) in state[1]]
+        # we can use the result() to get the state of the acted upon result of each action
+        (worker, boxes) = puzzle.result((worker, str([(box, 0) for box in boxes])), action)
+        # get the list of just the boxes, no costs
+        boxes = [box for (box, _) in eval(boxes)]
 
         # ensures the worker hasn't clipped a wall
-        if worker in walls:
+        if worker in puzzle.walls:
             return FAILED
 
-        # helper to ensure boxes aren't stacked
-
-        box_stack = set()
+        # ensure boxes aren't stacked
+        if len(boxes) != len(set(boxes)):
+            return FAILED
 
         # ensures no boxes have clipped any walls
         for box in boxes:
-            if box in box_stack or box in walls:
+            if box in puzzle.walls:
                 return FAILED
-            else:
-                box_stack.add(box)
 
+    # return a copy of the warehouse with the new worker and boxes
     return warehouse.copy(worker=worker, boxes=boxes).__str__()
 
 
@@ -542,16 +494,41 @@ def solve_sokoban_elem(warehouse):
             For example, ['Left', 'Down', Down','Right', 'Up', 'Down']
             If the puzzle is already in a goal state, simply return []
     """
-    puzzle = SokobanPuzzle(warehouse)
-    path = search.astar_graph_search(puzzle, puzzle.h)
+
+    path = search.astar_graph_search(SokobanPuzzle(warehouse))
 
     if path is not None:
         return path.solution()
-    else:
-        return FAILED
+
+    return FAILED
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+class PathProblem(search.Problem):
+
+    def __init__(self, warehouse, goal):
+        """initialises the problem"""
+        self.initial = warehouse.worker
+        self.boxes_and_walls = set(itertools.chain(warehouse.walls, warehouse.boxes))
+        self.goal = goal
+
+    def actions(self, state):
+        """yield of all possible actions"""
+        for action in SURROUNDINGS:
+            # check that the new state from the given action doesn't result in a wall or box collision
+            if add_action(state, action) not in self.boxes_and_walls:
+                yield action
+
+    def result(self, state, action):
+        """return the old state with the action applied"""
+        return add_action(state, action)
+
+    def h(self, n):
+        """heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|"""
+        return manhattan_distance(self.goal, n.state)
+
 
 def can_go_there(warehouse, dst):
     """
@@ -568,13 +545,13 @@ def can_go_there(warehouse, dst):
     (row, col) = dst
 
     # the player is only able to move to a space and a target square
-    ALLOWED_CELLS = set([SPACE, TARGET_SQUARE])
+    allowed_cells = {SPACE, TARGET_SQUARE}
 
     # convert the warehouse to a Array<Array<char>>
     warehouse_matrix = warehouse_to_matrix(warehouse)
 
     # check if the worker is allowed onto the given coordinates before checking if a valid path exists
-    if warehouse_matrix[row][col] not in ALLOWED_CELLS:
+    if warehouse_matrix[row][col] not in allowed_cells:
         return False
 
     # check if a valid path from the worker to the coordinate provided exists
@@ -608,13 +585,13 @@ def solve_sokoban_macro(warehouse):
         Otherwise return M a sequence of macro actions that solves the puzzle.
         If the puzzle is already in a goal state, simply return []
     """
-    puzzle = SokobanPuzzle(warehouse, macro=True)
-    path = search.astar_graph_search(puzzle, puzzle.h)
+
+    path = search.astar_graph_search(SokobanPuzzle(warehouse, macro=True))
 
     if path is not None:
         return path.solution()
-    else:
-        return FAILED
+
+    return FAILED
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -646,12 +623,11 @@ def solve_weighted_sokoban_elem(warehouse, push_costs):
             If the puzzle is already in a goal state, simply return []
     """
 
-    puzzle = SokobanPuzzle(warehouse, push_costs=push_costs)
-    path = search.astar_graph_search(puzzle, puzzle.h)
+    path = search.astar_graph_search(SokobanPuzzle(warehouse, push_costs=push_costs))
 
     if path is not None:
         return path.solution()
-    else:
-        return FAILED
+
+    return FAILED
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
