@@ -253,9 +253,9 @@ class SokobanPuzzle(search.Problem):
 
         it's necessary to use the string as the search.py uses a hashset and lists aren't hashable
         """
-        self.initial = (warehouse.worker, str(list(zip(warehouse.boxes, push_costs)))) \
+        self.initial = (warehouse.worker, frozenset(zip(warehouse.boxes, push_costs))) \
             if push_costs is not None \
-            else (warehouse.worker, str([(box, 0) for box in warehouse.boxes]))
+            else (warehouse.worker, frozenset((box, 0) for box in warehouse.boxes))
 
         # custom variable inputs
         self.push_costs = push_costs
@@ -275,7 +275,7 @@ class SokobanPuzzle(search.Problem):
         Return the list of actions that can be executed in the given state.
         """
         (worker, boxes) = state
-        boxes = [box for (box, _) in eval(boxes)]
+        boxes = set(box for (box, _) in boxes)
 
         # macro actions
         if self.macro:
@@ -332,7 +332,7 @@ class SokobanPuzzle(search.Problem):
             # copy the two states into workable variables
             (old_worker, old_boxes), (new_worker, new_boxes) = state1, state2
             # set comparison is unordered + we shouldn't have a case of box_stack up as this has already been checked
-            old_boxes, new_boxes = set(eval(old_boxes)), set(eval(new_boxes))
+            old_boxes, new_boxes = set(old_boxes), set(new_boxes)
 
             # if the two are different try find the box that moved
             if new_boxes != old_boxes:
@@ -349,7 +349,7 @@ class SokobanPuzzle(search.Problem):
         goal test to ensure all boxes are in a target_square
         """
         (_, boxes) = state
-        return set([box for (box, _) in eval(boxes)]) == self.goal
+        return set(box for (box, _) in boxes) == self.goal
 
     def result(self, state, action):
         """
@@ -357,7 +357,7 @@ class SokobanPuzzle(search.Problem):
         """
         # copy the state into workable variables
         (worker, boxes) = state
-        boxes = eval(boxes)
+        boxes = list(boxes)
 
         # macro result
         if self.macro:
@@ -378,7 +378,7 @@ class SokobanPuzzle(search.Problem):
             if worker == box:
                 boxes[i] = (add_action(box, next_pos), cost)
 
-        return worker, str(boxes)
+        return worker, frozenset(boxes)
 
     def h(self, n):
         """
@@ -388,7 +388,7 @@ class SokobanPuzzle(search.Problem):
         """
         # copy the state into workable variables
         (worker, boxes) = n.state
-        boxes = eval(boxes)
+        boxes = set(boxes)
 
         # initialise the list of distances
         # we don't care about double ups we just want the smallest possible answer
@@ -455,9 +455,9 @@ def check_elem_action_seq(warehouse, action_seq):
     # iterates over the actions
     for action in action_seq:
         # we can use the result() to get the state of the acted upon result of each action
-        (worker, boxes) = puzzle.result((worker, str([(box, 0) for box in boxes])), action)
+        (worker, boxes) = puzzle.result((worker, frozenset((box, 0) for box in boxes)), action)
         # get the list of just the boxes, no costs
-        boxes = [box for (box, _) in eval(boxes)]
+        boxes = list(box for (box, _) in boxes)
 
         # ensures the worker hasn't clipped a wall
         if worker in puzzle.walls:
