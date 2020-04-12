@@ -23,6 +23,7 @@ This is not negotiable!
 import search
 import sokoban
 import itertools
+import time
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -142,7 +143,7 @@ def taboo_cells(warehouse):
        The returned string should NOT have marks for the worker, the targets,
        and the boxes.
     """
-
+    t0 = time.time()
     # convert warehouse into 2D array of characters
     warehouse_matrix = warehouse_to_matrix(warehouse)
 
@@ -216,6 +217,8 @@ def taboo_cells(warehouse):
     for square in TARGETS:
         warehouse_str = warehouse_str.replace(square, SPACE)
 
+    if time.time() - t0 > 0.003:
+        print("taboo", time.time() - t0)
     return warehouse_str
 
 
@@ -253,6 +256,7 @@ class SokobanPuzzle(search.Problem):
 
         it's necessary to use the string as the search.py uses a hashset and lists aren't hashable
         """
+        t0 = time.time()
         self.initial = (warehouse.worker, frozenset(zip(warehouse.boxes, push_costs))) \
             if push_costs is not None \
             else (warehouse.worker, frozenset((box, 0) for box in warehouse.boxes))
@@ -269,11 +273,14 @@ class SokobanPuzzle(search.Problem):
 
         # for macro actions can_go_there purposes
         self.warehouse = warehouse
+        if time.time() - t0 > 0.003:
+            print("init", time.time() - t0)
 
     def actions(self, state):
         """
         Return the list of actions that can be executed in the given state.
         """
+        t0 = time.time()
         (worker, boxes) = state
         boxes = set(box for (box, _) in boxes)
 
@@ -297,6 +304,8 @@ class SokobanPuzzle(search.Problem):
                                 and (self.allow_taboo_push or new_box_pos not in self.taboo_cells):
                             # get the opposite of the surrounding as in,
                             # worker goes to the 'Left' and pushes the box 'Right'
+                            if time.time() - t0 > 0.003:
+                                print("actions()", time.time() - t0)
                             yield tuple(reversed(box)), ACTIONS[(i + 2) % 4]
         # elementary actions
         else:
@@ -309,6 +318,8 @@ class SokobanPuzzle(search.Problem):
                 if test_pos not in self.walls:
                     # if it's not in a box then the worker can move their
                     if test_pos not in boxes:
+                        if time.time() - t0 > 0.003:
+                            print("actions()", time.time() - t0)
                         yield ACTIONS[i]
 
                     # if it's within a box test new position of the box
@@ -319,12 +330,16 @@ class SokobanPuzzle(search.Problem):
                         # that allow taboo push is true or the test box not in taboo_cells
                         if test_pos not in boxes and test_pos not in self.walls \
                                 and (self.allow_taboo_push or test_pos not in self.taboo_cells):
+                            if time.time() - t0 > 0.003:
+                                print("actions()", time.time() - t0)
                             yield ACTIONS[i]
+
 
     def path_cost(self, c, state1, action, state2):
         """
         Return the cost of the solution path that arrives at state2 from state1 via action
         """
+        t0 = time.time()
         push_cost = 0
 
         # determines if we need to worry about push_costs
@@ -340,7 +355,8 @@ class SokobanPuzzle(search.Problem):
                     # assign push_cost the cost of the box movement
                     if (box, cost) not in old_boxes:
                         push_cost = cost
-
+        if time.time() - t0 > 0.003:
+            print("path_cost", time.time() - t0)
         # returns the current cost + 1 for an action + the push cost
         return c + 1 + push_cost
 
@@ -348,13 +364,18 @@ class SokobanPuzzle(search.Problem):
         """
         goal test to ensure all boxes are in a target_square
         """
+        t0 = time.time()
         (_, boxes) = state
-        return set(box for (box, _) in boxes) == self.goal
+        x = set(box for (box, _) in boxes) == self.goal
+        if time.time() - t0 > 0.003:
+            print("goal()", time.time() - t0)
+        return x
 
     def result(self, state, action):
         """
         action upon the given action and return the new state
         """
+        t0 = time.time()
         # copy the state into workable variables
         (worker, boxes) = state
         boxes = list(boxes)
@@ -377,7 +398,8 @@ class SokobanPuzzle(search.Problem):
         for i, (box, cost) in enumerate(boxes):
             if worker == box:
                 boxes[i] = (add_action(box, next_pos), cost)
-
+        if time.time() - t0 > 0.003:
+            print("result()", time.time() - t0)
         return worker, frozenset(boxes)
 
     def h(self, n):
@@ -386,6 +408,7 @@ class SokobanPuzzle(search.Problem):
         and also the closest box to target combination,
         incoporating push_costs if necessary
         """
+        t0 = time.time()
         # copy the state into workable variables
         (worker, boxes) = n.state
         boxes = set(boxes)
@@ -417,8 +440,11 @@ class SokobanPuzzle(search.Problem):
             # add the total so we have
             box_to_target_totals.add(total_distance)
 
+        x = min(worker_to_box_distances) + min(box_to_target_totals)
+        if time.time() - t0 > 0.003:
+            print("h():", time.time() - t0)
         # return the smallest worker to box distance and smallest box to target total distance
-        return min(worker_to_box_distances) + min(box_to_target_totals)
+        return x
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -446,6 +472,7 @@ def check_elem_action_seq(warehouse, action_seq):
                the sequence of actions.  This must be the same string as the
                string returned by the method  Warehouse.__str__()
     """
+    t0 = time.time()
     # copies warehouse into a new Sokoban puzzle
     puzzle = SokobanPuzzle(warehouse.copy())
 
@@ -472,9 +499,12 @@ def check_elem_action_seq(warehouse, action_seq):
             if box in puzzle.walls:
                 return FAILED
 
-    # return a copy of the warehouse with the new worker and boxes
-    return warehouse.copy(worker=worker, boxes=boxes).__str__()
+    x = warehouse.copy(worker=worker, boxes=boxes).__str__()
 
+    if time.time() - t0 > 0.003:
+        print("check_elem():", time.time() - t0)
+    # return a copy of the warehouse with the new worker and boxes
+    return x
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -541,6 +571,7 @@ def can_go_there(warehouse, dst):
       True if the worker can walk to cell dst=(row,column) without pushing any box
       False otherwise
     """
+    t0 = time.time()
     # separate row, col for usage below
     (row, col) = dst
 
@@ -556,7 +587,8 @@ def can_go_there(warehouse, dst):
 
     # check if a valid path from the worker to the coordinate provided exists
     path = search.astar_graph_search(PathProblem(warehouse, (col, row)))
-
+    if time.time() - t0 > 0.003:
+        print("can_go_there()", time.time() - t0)
     return path is not None
 
 
