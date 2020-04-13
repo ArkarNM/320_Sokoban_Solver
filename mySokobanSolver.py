@@ -388,7 +388,7 @@ class SokobanPuzzle(search.Problem):
         """
         # copy the state into workable variables
         (worker, boxes) = n.state
-        boxes = set(boxes)
+        boxes = list(boxes)
 
         # initialise the list of distances
         # we don't care about double ups we just want the smallest possible answer
