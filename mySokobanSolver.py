@@ -249,7 +249,7 @@ class SokobanPuzzle(search.Problem):
         """
         initialisation function
 
-        stores the state as a (worker, str([(box, cost),...]) tuple.
+        stores the state as a (worker, frozenset([(box, cost),...]) tuple.
 
         it's necessary to use the string as the search.py uses a hashset and lists aren't hashable
         """
@@ -325,7 +325,6 @@ class SokobanPuzzle(search.Problem):
         """
         Return the cost of the solution path that arrives at state2 from state1 via action
         """
-        push_cost = 0
 
         # determines if we need to worry about push_costs
         if self.push_costs is not None:
@@ -339,10 +338,10 @@ class SokobanPuzzle(search.Problem):
                 for box_index, (box, cost) in enumerate(new_boxes):
                     # assign push_cost the cost of the box movement
                     if (box, cost) not in old_boxes:
-                        push_cost = cost
+                        return c + 1 + cost
 
         # returns the current cost + 1 for an action + the push cost
-        return c + 1 + push_cost
+        return c + 1
 
     def goal_test(self, state):
         """
@@ -410,7 +409,7 @@ class SokobanPuzzle(search.Problem):
                 # cost is incorporated to ensure the worker understands
                 # the effort required to push this box.
                 # if it's 0 make it 1 because it still costs the worker to move there
-                cost = cost if cost > 0 else 1
+                cost = 1 if cost == 0 else cost
                 # append the total distance of all boxes to targets in this permutation
                 total_distance += manhattan_distance(target, box) * cost
 
