@@ -1,21 +1,21 @@
-'''
+"""
 
     2020 CAB320 Sokoban assignment
 
 
-The functions and classes defined in this module will be called by a marker script. 
+The functions and classes defined in this module will be called by a marker script.
 You should complete the functions and classes according to their specified interfaces.
 No partial marks will be awarded for functions that do not meet the specifications
 of the interfaces.
 
 
 You are NOT allowed to change the defined interfaces.
-That is, changing the formal parameters of a function will break the 
+That is, changing the formal parameters of a function will break the
 interface and results in a fail for the test of your code.
-This is not negotiable! 
+This is not negotiable!
 
 
-'''
+"""
 
 # You have to make sure that your code works with 
 # the files provided (search.py and sokoban.py) as your code will be tested 
@@ -58,6 +58,13 @@ FAILED = 'Impossible'
 def add_action(state, action, scale=1):
     """
     adds the action tuple to the state tuple and returns
+
+    @param state: current state to act upon (x, y)
+    @param action: the action to act upon (x, y)
+    @param scale: default 1, scales the action, can be negative for inverse effect
+
+    @return
+        new state of the acted upon action taking into account the scale
     """
     return state[0] + (scale * action[0]), state[1] + (scale * action[1])
 
@@ -65,10 +72,19 @@ def add_action(state, action, scale=1):
 def check_if_corner_cell(walls, dst):
     """
     checks the warehouse and determines if the cell is surrounded by a corner
+
+    @param walls: list of walls in (x, y) format
+    @param dst: the (row, col) of the position to test
+
+    @return
+        True if two surroundings diagonally adjacent to each other are both walls, thus the dst is in a corner
+        False otherwise
     """
     for i in range(len(SURROUNDINGS)):
         (a_x, a_y) = SURROUNDINGS[i]
-        (b_x, b_y) = SURROUNDINGS[(i + 1) % 4]
+        # gets the next cell diagonally adjacent,
+        # use of mod wraps the index around back to the start for the final test
+        (b_x, b_y) = SURROUNDINGS[(i + 1) % len(SURROUNDINGS)]
 
         # if both are walls, as in is a corner, then return True
         if (dst[1] + a_x, dst[0] + a_y) in walls and (dst[1] + b_x, dst[0] + b_y) in walls:
@@ -79,6 +95,13 @@ def check_if_corner_cell(walls, dst):
 def check_if_along_wall(walls, dst):
     """
     checks the warehouse and determines if the cell is along a wall
+
+    @param walls: list of walls in (x, y) format
+    @param dst: the (row, col) of the position to test
+
+    @return
+        True if the position is next to a wall
+        False otherwise
     """
     (row, col) = dst
     for (a_x, a_y) in SURROUNDINGS:
@@ -91,6 +114,11 @@ def check_if_along_wall(walls, dst):
 def matrix_to_string(warehouse_m):
     """
     converts a 2D array of chars to a string
+
+    @param warehouse_m: 2D array of chars representing the warehouse
+
+    @return
+        a string representing the warehouse
     """
     return NEW_LINE.join([EMPTY_STRING.join(row) for row in warehouse_m])
 
@@ -98,15 +126,26 @@ def matrix_to_string(warehouse_m):
 def warehouse_to_matrix(warehouse):
     """
     converts a string to a 2D array of chars
+
+    @param warehouse: the warehouse object
+
+    @return
+        2D array of chars representing the warehouse
     """
     return [list(line) for line in warehouse.__str__().split(NEW_LINE)]
 
 
-def manhattan_distance(init, end):
+def manhattan_distance(start, end):
     """
     manhattan distance |x2 - x1| + |y2 - y1|
+
+    @param start: the first x, y value
+    @param end: the last x, y value
+
+    @return
+        the manhattan distance between the two given tuples
     """
-    return abs(end[0] - init[0]) + abs(end[1] - init[1])
+    return abs(end[0] - start[0]) + abs(end[1] - start[1])
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -249,9 +288,13 @@ class SokobanPuzzle(search.Problem):
         """
         initialisation function
 
-        stores the state as a (worker, frozenset([(box, cost),...]) tuple.
+        stores the state as a (worker, frozenset((box, cost), ...) tuple
+        and any other necessary information for performing the a* graph search algorithm
 
-        it's necessary to use the string as the search.py uses a hashset and lists aren't hashable
+        @param warehouse: the warehouse object
+        @param macro: default False, whether to use macro actions
+        @param allow_taboo_push: default False, whether to allow boxes to be pushed onto taboo cells
+        @push_costs: default None, list of integer costs following the same order of warehouse.boxes
         """
         self.initial = (warehouse.worker, frozenset(zip(warehouse.boxes, push_costs))) \
             if push_costs is not None \
@@ -272,7 +315,12 @@ class SokobanPuzzle(search.Problem):
 
     def actions(self, state):
         """
-        Return the list of actions that can be executed in the given state.
+        yield of all possible actions
+
+        @param state: state of the puzzle (worker, [(box, cost), ...])
+
+        @yield
+            possible actions for the worker to take given the current state
         """
         (worker, boxes) = state
         boxes = set(box for (box, _) in boxes)
@@ -323,9 +371,16 @@ class SokobanPuzzle(search.Problem):
 
     def path_cost(self, c, state1, action, state2):
         """
-        Return the cost of the solution path that arrives at state2 from state1 via action
-        """
+        the path cost of the change from state 1 to state 2
 
+        @param c: the current cost
+        @param state1: current state of the puzzle
+        @param action: the action to get from state1 to state2
+        @param state2: new state of the puzzle
+
+        @return
+            the cost of performing the action to get from state1 to state2
+        """
         # determines if we need to worry about push_costs
         if self.push_costs is not None:
             # copy the two states into workable variables
@@ -345,14 +400,26 @@ class SokobanPuzzle(search.Problem):
 
     def goal_test(self, state):
         """
-        goal test to ensure all boxes are in a target_square
+        tests if the state is in the goal position
+
+        @param state: current state of the puzzle
+
+        @return
+            True if the goal is met
+            False otherwise
         """
         (_, boxes) = state
         return set(box for (box, _) in boxes) == self.goal
 
     def result(self, state, action):
         """
-        action upon the given action and return the new state
+        act upon the given action using the given state
+
+        @param state: current state of the puzzle
+        @param action: the action to act upon
+
+        @return
+            the new state
         """
         # copy the state into workable variables
         (worker, boxes) = state
@@ -383,7 +450,14 @@ class SokobanPuzzle(search.Problem):
         """
         heuristic using that defines the closest box to the worker
         and also the closest box to target combination,
-        incoporating push_costs if necessary
+        incorporating push_costs if necessary
+
+        @param n: current node
+
+        @return
+            the heuristic value to favour any paths that move the worker closer to boxes
+            and push boxes closer to any targets, taking into account push_costs if any
+            0 if the worker is next to a box and all boxes are on a target
         """
         # copy the state into workable variables
         (worker, boxes) = n.state
@@ -395,7 +469,7 @@ class SokobanPuzzle(search.Problem):
 
         # iterate through boxes and append the distance for each from worker
         for (box, _) in boxes:
-            worker_to_box_distances.add(manhattan_distance(worker, box))
+            worker_to_box_distances.add(manhattan_distance(worker, box) - 1)
 
         # iterate through each permutation of targets to find the distance between each box
         for targets_perm in itertools.permutations(self.goal):
@@ -508,24 +582,51 @@ def solve_sokoban_elem(warehouse):
 class PathProblem(search.Problem):
 
     def __init__(self, warehouse, goal):
-        """initialises the problem"""
+        """
+        initialises the problem
+
+        @param warehouse: a valid Warehouse object
+        @param goal: the (x, y) location for the worker to attempt to go to
+        """
         self.initial = warehouse.worker
         self.boxes_and_walls = set(itertools.chain(warehouse.walls, warehouse.boxes))
         self.goal = goal
 
     def actions(self, state):
-        """yield of all possible actions"""
+        """
+        yield of all possible actions
+
+        @param state: state of the worker (x, y)
+
+        @yield
+            possible actions for the worker to take given the current state
+        """
         for action in SURROUNDINGS:
             # check that the new state from the given action doesn't result in a wall or box collision
             if add_action(state, action) not in self.boxes_and_walls:
                 yield action
 
     def result(self, state, action):
-        """return the old state with the action applied"""
+        """
+        return the old state with the action applied
+
+        @param state: current state of the worker
+        @param action: the action to be acted upon by the worker
+
+        @return
+            the new state of the worker after acting upon the action
+        """
         return add_action(state, action)
 
     def h(self, n):
-        """heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|"""
+        """
+        heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
+
+        @param n: the current node
+
+        @return
+            the manhattan distance between the worker and it's goal
+        """
         return manhattan_distance(self.goal, n.state)
 
 
@@ -535,6 +636,7 @@ def can_go_there(warehouse, dst):
     without pushing any box.
 
     @param warehouse: a valid Warehouse object
+    @param dst: (row, col) of the location to go to
 
     @return
       True if the worker can walk to cell dst=(row,column) without pushing any box
