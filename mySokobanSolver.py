@@ -392,8 +392,12 @@ class SokobanPuzzle(search.Problem):
                     # if the worker can't go there then it's not a valid move
                     if worker == test_pos or \
                             can_go_there(self.warehouse.copy(worker=worker, boxes=boxes), tuple(reversed(test_pos))):
-                        # new position of the box when pushed, opposition direction of current surrounding
-                        new_box_pos = add_action(box, surr, -1)                                                    ##################################################
+                        # new position of the box when pushed, opposite direction of current surrounding
+                        # as we're testing the X position next to the box
+                        # to see if we can push it in the direction of the box
+                        opposite_i = ((i + 2) % len(SURROUNDINGS))
+                        opposite_surr = SURROUNDINGS[opposite_i]
+                        new_box_pos = add_action(box, opposite_surr)
 
                         # ensure the new box position doesn't merge with a wall, box and
                         # that allow taboo push is true or the test box not in taboo_cells
@@ -401,7 +405,8 @@ class SokobanPuzzle(search.Problem):
                                 and (self.allow_taboo_push or new_box_pos not in self.taboo_cells):
                             # get the opposite of the surrounding as in,
                             # worker goes to the 'Left' and pushes the box 'Right'
-                            yield tuple(reversed(box)), ACTIONS[(i + 2) % 4]                ######################################################################
+                            opposite_action = ACTIONS[opposite_i]
+                            yield tuple(reversed(box)), opposite_action
         # elementary actions
         else:
             # enumerate through possible surroundings of the worker
