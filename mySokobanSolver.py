@@ -48,14 +48,12 @@ EMPTY_STRING = ''
 # different types of target squares
 TARGETS = [TARGET_SQUARE, PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET]
 
-# helper for corners, stored in (x, y)
-SURROUNDINGS = [(0, -1), (-1, 0), (0, 1), (1, 0)]
-
-# agent action types
-ACTIONS = ['Up', 'Left', 'Down', 'Right']
+# helper for corners + agent action types
+ACTIONS = {'Up': (0, -1), 'Left': (-1, 0), 'Down': (0, 1), 'Right': (1, 0)}
 
 # game outcome
 FAILED = 'Impossible'
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -75,6 +73,27 @@ def add_action(state, action, scale=1):
     return state[0] + (scale * action[0]), state[1] + (scale * action[1])
 
 
+def opposite_action(action):
+    """
+    Get the opposite of the given action
+
+    @param action: the action to check
+
+    @return
+        the returned action
+    """
+    if action == 'Up':
+        return 'Down'
+    elif action == 'Left':
+        return 'Right'
+    elif action == 'Down':
+        return 'Up'
+    elif action == 'Right':
+        return 'Left'
+    else:
+        return NotImplementedError()
+
+
 def check_if_corner_cell(walls, dst):
     """
     checks the warehouse and determines if the cell is surrounded by a corner
@@ -86,11 +105,13 @@ def check_if_corner_cell(walls, dst):
         True if two surroundings diagonally adjacent to each other are both walls, thus the dst is in a corner
         False otherwise
     """
-    for i in range(len(SURROUNDINGS)):
-        (a_x, a_y) = SURROUNDINGS[i]
+    surroundings = list(ACTIONS.values())
+    for i in range(len(surroundings)):
+        (a_x, a_y) = surroundings[i]
         # gets the next cell diagonally adjacent, use of mod wraps the
         # index around back to the start for the final test
-        (b_x, b_y) = SURROUNDINGS[(i + 1) % len(SURROUNDINGS)]
+        next_adjacent_index = (i + 1) % len(surroundings)
+        (b_x, b_y) = surroundings[next_adjacent_index]
 
         # if both are walls, as in is a corner, then return True
         if (dst[1] + a_x, dst[0] + a_y) in walls and (dst[1] + b_x, dst[0] + b_y) in walls:
@@ -109,8 +130,9 @@ def check_if_along_wall(walls, dst):
         True if the position is next to a wall
         False otherwise
     """
+    surroundings = list(ACTIONS.values())
     (row, col) = dst
-    for (a_x, a_y) in SURROUNDINGS:
+    for (a_x, a_y) in surroundings:
         # if next to wall then return True
         if (col + a_x, row + a_y) in walls:
             return True
@@ -153,6 +175,7 @@ def manhattan_distance(start, end):
     """
     return abs(end[0] - start[0]) + abs(end[1] - start[1])
 
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # -- Auxiliary Class -- #
@@ -179,7 +202,7 @@ class PathProblem(search.Problem):
         @yield
             possible actions for the worker to take given the current state
         """
-        for action in SURROUNDINGS:
+        for action in ACTIONS.values():
             # check that the new state from the given action doesn't result in a wall or box collision
             if add_action(state, action) not in self.boxes_and_walls:
                 yield action
@@ -207,6 +230,7 @@ class PathProblem(search.Problem):
         """
         return manhattan_distance(self.goal, n.state)
 
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def my_team():
@@ -215,6 +239,7 @@ def my_team():
     of triplet of the form (student_number, first_name, last_name)
     """
     return [(10212361, 'Jamie', 'Martin'), (9737197, 'Tolga', 'Pasin')]
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -315,6 +340,7 @@ def taboo_cells(warehouse):
 
     return warehouse_string
 
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 class SokobanPuzzle(search.Problem):
@@ -386,7 +412,8 @@ class SokobanPuzzle(search.Problem):
             # go through boxes and determine what worker can do to them
             for box in boxes:
                 # enumerate through possible surroundings of each box
-                for i, surr in enumerate(SURROUNDINGS):
+                for action in ACTIONS:
+                    surr = ACTIONS[action]
                     # test the possible surroundings for the worker to move to
                     test_pos = add_action(box, surr)
                     # if the worker can't go there then it's not a valid move
@@ -395,8 +422,8 @@ class SokobanPuzzle(search.Problem):
                         # new position of the box when pushed, opposite direction of current surrounding
                         # as we're testing the X position next to the box
                         # to see if we can push it in the direction of the box
-                        opposite_i = ((i + 2) % len(SURROUNDINGS))
-                        opposite_surr = SURROUNDINGS[opposite_i]
+                        opp_action = opposite_action(action)
+                        opposite_surr = ACTIONS[opp_action]
                         new_box_pos = add_action(box, opposite_surr)
 
                         # ensure the new box position doesn't merge with a wall, box and
@@ -405,12 +432,12 @@ class SokobanPuzzle(search.Problem):
                                 and (self.allow_taboo_push or new_box_pos not in self.taboo_cells):
                             # get the opposite of the surrounding as in,
                             # worker goes to the 'Left' and pushes the box 'Right'
-                            opposite_action = ACTIONS[opposite_i]
-                            yield tuple(reversed(box)), opposite_action
+                            yield tuple(reversed(box)), opp_action
         # elementary actions
         else:
             # enumerate through possible surroundings of the worker
-            for i, surr in enumerate(SURROUNDINGS):
+            for action in ACTIONS:
+                surr = ACTIONS[action]
                 # add the surrounding to the workers current position to test if it's viable
                 test_pos = add_action(worker, surr)
 
@@ -418,7 +445,7 @@ class SokobanPuzzle(search.Problem):
                 if test_pos not in self.walls:
                     # if it's not in a box then the worker can move there
                     if test_pos not in boxes:
-                        yield ACTIONS[i]
+                        yield action
 
                     # if it's within a box test new position of the box
                     else:
@@ -428,7 +455,7 @@ class SokobanPuzzle(search.Problem):
                         # that allow taboo push is true or the test box not in taboo_cells
                         if test_pos not in boxes and test_pos not in self.walls \
                                 and (self.allow_taboo_push or test_pos not in self.taboo_cells):
-                            yield ACTIONS[i]
+                            yield action
 
     def path_cost(self, c, state1, action, state2):
         """
@@ -489,14 +516,14 @@ class SokobanPuzzle(search.Problem):
         # macro result
         if self.macro:
             # convert action ie 'Left' into tuple (-1, 0)
-            next_pos = SURROUNDINGS[ACTIONS.index(action[1])]
+            next_pos = ACTIONS[action[1]]
             # assigns the worker their new position
             # flip the action because it's in row, col (y, x) not x, y
             worker = tuple(reversed(action[0]))
         # elementary result
         else:
             # convert action ie 'Left' into tuple (-1, 0)
-            next_pos = SURROUNDINGS[ACTIONS.index(action)]
+            next_pos = ACTIONS[action]
             # assigns the worker their new position
             worker = add_action(worker, next_pos)
 
@@ -554,6 +581,7 @@ class SokobanPuzzle(search.Problem):
         # return the smallest worker to box distance and smallest box to target total distance
         return min(worker_to_box_distances) + min(box_to_target_totals)
 
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def check_elem_action_seq(warehouse, action_seq):
@@ -607,6 +635,7 @@ def check_elem_action_seq(warehouse, action_seq):
 
     # return a copy of the warehouse with the new worker and boxes
     return warehouse.copy(worker=worker, boxes=boxes).__str__()
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -667,6 +696,7 @@ def can_go_there(warehouse, dst):
 
     return path is not None
 
+
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def solve_sokoban_macro(warehouse):
@@ -698,6 +728,7 @@ def solve_sokoban_macro(warehouse):
         return path.solution()
 
     return FAILED
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
