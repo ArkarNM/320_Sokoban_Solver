@@ -22,6 +22,11 @@ This is not negotiable!
 # with these files
 import search
 import sokoban
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# -- Additional Import -- #
+
 import itertools
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -45,19 +50,20 @@ TARGETS = [TARGET_SQUARE, PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET]
 
 # helper for corners, stored in (x, y)
 SURROUNDINGS = [(0, -1), (-1, 0), (0, 1), (1, 0)]
+
+# agent action types
 ACTIONS = ['Up', 'Left', 'Down', 'Right']
 
 # game outcome
 FAILED = 'Impossible'
 
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-# -- Helper Functions -- ##
+# -- Auxiliary Functions -- #
 
 def add_action(state, action, scale=1):
     """
-    adds the action tuple to the state tuple and returns
+    adds the action tuple to the state tuple and returns a new state
 
     @param state: current state to act upon (x, y)
     @param action: the action to act upon (x, y)
@@ -82,8 +88,8 @@ def check_if_corner_cell(walls, dst):
     """
     for i in range(len(SURROUNDINGS)):
         (a_x, a_y) = SURROUNDINGS[i]
-        # gets the next cell diagonally adjacent,
-        # use of mod wraps the index around back to the start for the final test
+        # gets the next cell diagonally adjacent, use of mod wraps the
+        # index around back to the start for the final test
         (b_x, b_y) = SURROUNDINGS[(i + 1) % len(SURROUNDINGS)]
 
         # if both are walls, as in is a corner, then return True
@@ -111,16 +117,16 @@ def check_if_along_wall(walls, dst):
     return False
 
 
-def matrix_to_string(warehouse_m):
+def matrix_to_string(warehouse_matrix):
     """
     converts a 2D array of chars to a string
 
-    @param warehouse_m: 2D array of chars representing the warehouse
+    @param warehouse_matrix: 2D array of chars representing the warehouse
 
     @return
         a string representing the warehouse
     """
-    return NEW_LINE.join([EMPTY_STRING.join(row) for row in warehouse_m])
+    return NEW_LINE.join([EMPTY_STRING.join(row) for row in warehouse_matrix])
 
 
 def warehouse_to_matrix(warehouse):
@@ -143,10 +149,63 @@ def manhattan_distance(start, end):
     @param end: the last x, y value
 
     @return
-        the manhattan distance between the two given tuples
+        the calculated manhattan distance between the two given tuples
     """
     return abs(end[0] - start[0]) + abs(end[1] - start[1])
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+# -- Auxiliary Class -- #
+
+class PathProblem(search.Problem):
+
+    def __init__(self, warehouse, goal):
+        """
+        initialises the problem
+
+        @param warehouse: a valid Warehouse object
+        @param goal: the (x, y) location for the worker to attempt to go to
+        """
+        self.initial = warehouse.worker
+        self.boxes_and_walls = set(itertools.chain(warehouse.walls, warehouse.boxes))
+        self.goal = goal
+
+    def actions(self, state):
+        """
+        yield all possible actions
+
+        @param state: state of the worker (x, y)
+
+        @yield
+            possible actions for the worker to take given the current state
+        """
+        for action in SURROUNDINGS:
+            # check that the new state from the given action doesn't result in a wall or box collision
+            if add_action(state, action) not in self.boxes_and_walls:
+                yield action
+
+    def result(self, state, action):
+        """
+        return the new state with the action applied
+
+        @param state: current state of the worker
+        @param action: the action to be acted upon by the worker
+
+        @return
+            the new state of the worker after acting upon the action
+        """
+        return add_action(state, action)
+
+    def h(self, n):
+        """
+        heuristic using manhattan distance for A* graph search |x2 - x1| + |y2 - y1|
+
+        @param n: the current node
+
+        @return
+            the manhattan distance between the worker and it's goal
+        """
+        return manhattan_distance(self.goal, n.state)
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -156,7 +215,6 @@ def my_team():
     of triplet of the form (student_number, first_name, last_name)
     """
     return [(10212361, 'Jamie', 'Martin'), (9737197, 'Tolga', 'Pasin')]
-
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -249,17 +307,15 @@ def taboo_cells(warehouse):
                                     warehouse_matrix[taboo_index][col_index] = TABOO
 
     # return to string variable
-    warehouse_str = matrix_to_string(warehouse_matrix)
+    warehouse_string = matrix_to_string(warehouse_matrix)
 
     # remove target chars
     for square in TARGETS:
-        warehouse_str = warehouse_str.replace(square, SPACE)
+        warehouse_string = warehouse_string.replace(square, SPACE)
 
-    return warehouse_str
-
+    return warehouse_string
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 
 class SokobanPuzzle(search.Problem):
     """
@@ -288,7 +344,7 @@ class SokobanPuzzle(search.Problem):
         """
         initialisation function
 
-        stores the state as a (worker, frozenset((box, cost), ...) tuple
+        stores the state as a tuple of (worker, frozenset((box, cost), ...)
         and any other necessary information for performing the a* graph search algorithm
 
         @param warehouse: the warehouse object
@@ -317,7 +373,7 @@ class SokobanPuzzle(search.Problem):
         """
         yield of all possible actions
 
-        @param state: state of the puzzle (worker, [(box, cost), ...])
+        @param state: state of the puzzle as a tuple of (worker, [(box, cost), ...])
 
         @yield
             possible actions for the worker to take given the current state
@@ -337,7 +393,7 @@ class SokobanPuzzle(search.Problem):
                     if worker == test_pos or \
                             can_go_there(self.warehouse.copy(worker=worker, boxes=boxes), tuple(reversed(test_pos))):
                         # new position of the box when pushed, opposition direction of current surrounding
-                        new_box_pos = add_action(box, surr, -1)
+                        new_box_pos = add_action(box, surr, -1)                                                    ##################################################
 
                         # ensure the new box position doesn't merge with a wall, box and
                         # that allow taboo push is true or the test box not in taboo_cells
@@ -345,7 +401,7 @@ class SokobanPuzzle(search.Problem):
                                 and (self.allow_taboo_push or new_box_pos not in self.taboo_cells):
                             # get the opposite of the surrounding as in,
                             # worker goes to the 'Left' and pushes the box 'Right'
-                            yield tuple(reversed(box)), ACTIONS[(i + 2) % 4]
+                            yield tuple(reversed(box)), ACTIONS[(i + 2) % 4]                ######################################################################
         # elementary actions
         else:
             # enumerate through possible surroundings of the worker
@@ -355,13 +411,13 @@ class SokobanPuzzle(search.Problem):
 
                 # ensure it's not in a wall
                 if test_pos not in self.walls:
-                    # if it's not in a box then the worker can move their
+                    # if it's not in a box then the worker can move there
                     if test_pos not in boxes:
                         yield ACTIONS[i]
 
                     # if it's within a box test new position of the box
                     else:
-                        # this is the position 2 spaces from the current worker
+                        # this is the position two spaces from the current worker
                         test_pos = add_action(test_pos, surr)
                         # ensure the new box position doesn't merge with a wall, box and
                         # that allow taboo push is true or the test box not in taboo_cells
@@ -493,7 +549,6 @@ class SokobanPuzzle(search.Problem):
         # return the smallest worker to box distance and smallest box to target total distance
         return min(worker_to_box_distances) + min(box_to_target_totals)
 
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def check_elem_action_seq(warehouse, action_seq):
@@ -548,7 +603,6 @@ def check_elem_action_seq(warehouse, action_seq):
     # return a copy of the warehouse with the new worker and boxes
     return warehouse.copy(worker=worker, boxes=boxes).__str__()
 
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 def solve_sokoban_elem(warehouse):
@@ -577,58 +631,6 @@ def solve_sokoban_elem(warehouse):
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-
-class PathProblem(search.Problem):
-
-    def __init__(self, warehouse, goal):
-        """
-        initialises the problem
-
-        @param warehouse: a valid Warehouse object
-        @param goal: the (x, y) location for the worker to attempt to go to
-        """
-        self.initial = warehouse.worker
-        self.boxes_and_walls = set(itertools.chain(warehouse.walls, warehouse.boxes))
-        self.goal = goal
-
-    def actions(self, state):
-        """
-        yield of all possible actions
-
-        @param state: state of the worker (x, y)
-
-        @yield
-            possible actions for the worker to take given the current state
-        """
-        for action in SURROUNDINGS:
-            # check that the new state from the given action doesn't result in a wall or box collision
-            if add_action(state, action) not in self.boxes_and_walls:
-                yield action
-
-    def result(self, state, action):
-        """
-        return the old state with the action applied
-
-        @param state: current state of the worker
-        @param action: the action to be acted upon by the worker
-
-        @return
-            the new state of the worker after acting upon the action
-        """
-        return add_action(state, action)
-
-    def h(self, n):
-        """
-        heuristic using manhattan distance for a* graph search |x2 - x1| + |y2 - y1|
-
-        @param n: the current node
-
-        @return
-            the manhattan distance between the worker and it's goal
-        """
-        return manhattan_distance(self.goal, n.state)
-
 
 def can_go_there(warehouse, dst):
     """
@@ -660,9 +662,7 @@ def can_go_there(warehouse, dst):
 
     return path is not None
 
-
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 
 def solve_sokoban_macro(warehouse):
     """
@@ -693,7 +693,6 @@ def solve_sokoban_macro(warehouse):
         return path.solution()
 
     return FAILED
-
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
