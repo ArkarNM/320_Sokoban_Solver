@@ -48,7 +48,7 @@ EMPTY_STRING = ''
 # different types of target squares
 TARGETS = [TARGET_SQUARE, PLAYER_ON_TARGET_SQUARE, BOX_ON_TARGET]
 
-# helper for corners + agent action types
+# helper for corners + agent action types (x, y)
 ACTIONS = {'Up': (0, -1), 'Left': (-1, 0), 'Down': (0, 1), 'Right': (1, 0)}
 
 # game outcome
@@ -59,18 +59,17 @@ FAILED = 'Impossible'
 
 # -- Auxiliary Functions -- #
 
-def add_action(state, action, scale=1):
+def add_action(state, action):
     """
     adds the action tuple to the state tuple and returns a new state
 
     @param state: current state to act upon (x, y)
     @param action: the action to act upon (x, y)
-    @param scale: default 1, scales the action, can be negative for inverse effect
 
     @return
         new state of the acted upon action taking into account the scale
     """
-    return state[0] + (scale * action[0]), state[1] + (scale * action[1])
+    return state[0] + action[0], state[1] + action[1]
 
 
 def opposite_action(action):
@@ -105,13 +104,13 @@ def check_if_corner_cell(walls, dst):
         True if two surroundings diagonally adjacent to each other are both walls, thus the dst is in a corner
         False otherwise
     """
+    # get a list of surroundings in (x, y) form
     surroundings = list(ACTIONS.values())
-    for i in range(len(surroundings)):
-        (a_x, a_y) = surroundings[i]
+    for i, (a_x, a_y) in enumerate(surroundings):
         # gets the next cell diagonally adjacent, use of mod wraps the
         # index around back to the start for the final test
-        next_adjacent_index = (i + 1) % len(surroundings)
-        (b_x, b_y) = surroundings[next_adjacent_index]
+        next_corner_index = (i + 1) % len(surroundings)
+        (b_x, b_y) = surroundings[next_corner_index]
 
         # if both are walls, as in is a corner, then return True
         if (dst[1] + a_x, dst[0] + a_y) in walls and (dst[1] + b_x, dst[0] + b_y) in walls:
@@ -119,7 +118,7 @@ def check_if_corner_cell(walls, dst):
     return False
 
 
-def check_if_along_wall(walls, dst):
+def check_along_wall(walls, dst):
     """
     checks the warehouse and determines if the cell is along a wall
 
@@ -130,6 +129,7 @@ def check_if_along_wall(walls, dst):
         True if the position is next to a wall
         False otherwise
     """
+    # get a list of surroundings in (x, y) form
     surroundings = list(ACTIONS.values())
     (row, col) = dst
     for (a_x, a_y) in surroundings:
@@ -174,7 +174,6 @@ def manhattan_distance(start, end):
         the calculated manhattan distance between the two given tuples
     """
     return abs(end[0] - start[0]) + abs(end[1] - start[1])
-
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -293,8 +292,10 @@ def taboo_cells(warehouse):
                     warehouse_matrix[row_index][col_index] = TABOO
 
                     # rule 2: all the cells between two corners along a wall are taboo if none of these cells is a
-                    # target. from the taboo point get the rest of the row to the right of it and enumerate
-                    for taboo_col_index in range((col_index + 1), warehouse.ncols):
+                    # target. from the taboo point get the rest of the row (col_index + 1) to the right of it
+                    # and iterate
+                    next_in_column = col_index + 1
+                    for taboo_col_index in range(next_in_column, warehouse.ncols):
                         taboo_cell = warehouse_matrix[row_index][taboo_col_index]
                         # if there's any targets or walls break
                         if taboo_cell in TARGETS or taboo_cell is WALL:
@@ -304,16 +305,17 @@ def taboo_cells(warehouse):
 
                         # find another taboo cell or corner
                         if check_if_corner_cell(walls, taboo_position):
+                            current_section = range(next_in_column, taboo_col_index)
                             # if the entire row is along a wall then the entire row is taboo
-                            rest_of_cells_along_wall = [check_if_along_wall(walls, (row_index, i)) for i in
-                                                        range(col_index + 1, taboo_col_index)]
-                            if all(rest_of_cells_along_wall):
+                            cells_along_wall = [check_along_wall(walls, (row_index, i)) for i in current_section]
+                            if all(cells_along_wall):
                                 # fill with taboo
-                                for taboo_index in range(col_index + 1, taboo_col_index):
+                                for taboo_index in range(next_in_column, taboo_col_index):
                                     warehouse_matrix[row_index][taboo_index] = TABOO
 
-                    # from the taboo point get the rest of the column below it and enumerate over
-                    for taboo_row_index in range((row_index + 1), warehouse.nrows):
+                    # from the taboo point get the rest of the column (row_index + 1) below it and enumerate over
+                    next_in_row = row_index + 1
+                    for taboo_row_index in range(next_in_row, warehouse.nrows):
                         taboo_cell = warehouse_matrix[taboo_row_index][col_index]
                         # if there's any targets or walls break
                         if taboo_cell in TARGETS or taboo_cell is WALL:
@@ -323,12 +325,12 @@ def taboo_cells(warehouse):
 
                         # find another taboo cell or corner
                         if check_if_corner_cell(walls, taboo_position):
+                            current_section = range(next_in_row, taboo_row_index)
                             # if the entire column is along a wall then the entire column is taboo
-                            rest_of_cells_along_wall = [check_if_along_wall(walls, (i, col_index)) for i in
-                                                        range(row_index + 1, taboo_row_index)]
-                            if all(rest_of_cells_along_wall):
+                            cells_along_wall = [check_along_wall(walls, (i, col_index)) for i in current_section]
+                            if all(cells_along_wall):
                                 # fill with taboo
-                                for taboo_index in range(row_index + 1, taboo_row_index):
+                                for taboo_index in range(next_in_row, taboo_row_index):
                                     warehouse_matrix[taboo_index][col_index] = TABOO
 
     # return to string variable
@@ -457,18 +459,20 @@ class SokobanPuzzle(search.Problem):
                                 and (self.allow_taboo_push or test_pos not in self.taboo_cells):
                             yield action
 
-    def path_cost(self, c, state1, action, state2):
+    def path_cost(self, c, state1, movement_cost, state2):
         """
         the path cost of the change from state 1 to state 2
 
         @param c: the current cost
         @param state1: current state of the puzzle
-        @param action: the action to get from state1 to state2
+        @param movement_cost: the action to get from state1 to state2
         @param state2: new state of the puzzle
 
         @return
             the cost of performing the action to get from state1 to state2
         """
+        movement_cost = 1
+
         # determines if we need to worry about push_costs
         if self.push_costs is not None:
             # copy the two states into workable variables
@@ -481,10 +485,10 @@ class SokobanPuzzle(search.Problem):
                 for box_index, (box, cost) in enumerate(new_boxes):
                     # assign push_cost the cost of the box movement
                     if (box, cost) not in old_boxes:
-                        return c + 1 + cost
+                        return c + movement_cost + cost
 
         # returns the current cost + 1 for an action + the push cost
-        return c + 1
+        return c + movement_cost
 
     def goal_test(self, state):
         """
@@ -552,16 +556,17 @@ class SokobanPuzzle(search.Problem):
         boxes = list(boxes)
 
         # initialise the list of distances
-        # we don't care about double ups we just want the smallest possible answer
+        # we don't care about double ups we just want the smallest possible answer, hence using a set
         worker_to_box_distances, box_to_target_totals = set(), set()
 
         # iterate through boxes and append the distance for each from worker
         for (box, _) in boxes:
-            worker_to_box_distances.add(manhattan_distance(worker, box) - 1)
+            distance_to_box = manhattan_distance(worker, box)
+            worker_to_box_distances.add(distance_to_box)
 
         # iterate through each permutation of targets to find the distance between each box
         for targets_perm in itertools.permutations(self.goal):
-            total_distance = 0
+            total_cost = 0
 
             # combines targets and boxes in tuples as in (target, box)
             zipped_tuples = zip(targets_perm, boxes)
@@ -572,11 +577,12 @@ class SokobanPuzzle(search.Problem):
                 # the effort required to push this box.
                 # if it's 0 make it 1 because it still costs the worker to move there
                 cost = 1 if cost == 0 else cost
-                # append the total distance of all boxes to targets in this permutation
-                total_distance += manhattan_distance(target, box) * cost
+                # append the calculated box_to_target cost for this permutation
+                box_to_target = manhattan_distance(target, box) * cost
+                total_cost += box_to_target
 
             # add the total so we have
-            box_to_target_totals.add(total_distance)
+            box_to_target_totals.add(total_cost)
 
         # return the smallest worker to box distance and smallest box to target total distance
         return min(worker_to_box_distances) + min(box_to_target_totals)
@@ -616,7 +622,9 @@ def check_elem_action_seq(warehouse, action_seq):
     # iterates over the actions
     for action in action_seq:
         # we can use the result() to get the state of the acted upon result of each action
-        (worker, boxes) = puzzle.result((worker, frozenset((box, 0) for box in boxes)), action)
+        no_cost = 0
+        state = (worker, frozenset((box, no_cost) for box in boxes))
+        (worker, boxes) = puzzle.result(state, action)
         # get the list of just the boxes, no costs
         boxes = list(box for (box, _) in boxes)
 
