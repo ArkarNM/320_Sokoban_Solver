@@ -166,7 +166,6 @@ def test_solve_weighted_sokoban_elem():
 
 if __name__ == "__main__":
     pass    
-    print(my_team())  # should print your team
 
     test_taboo_cells()
     test_check_elem_action_seq()
